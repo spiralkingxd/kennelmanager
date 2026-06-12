@@ -1,0 +1,71 @@
+# Environment
+.env
+!.env.example
+
+# Build & Distribution
+dist/
+build/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Testes
+coverage/
+test-results/
+playwright-report/
+*.test.ts
+*.spec.ts
+tests/
+
+# Logs
+logs/
+*.log
+lint-fix-output.txt
+
+# Documentation & arquivos de análise
+README.md
+CLAUDE.md
+AGENTS.md
+analise.html
+relatorio.html
+stats.html
+docs/
+.sum/
+
+
+# OpenCode / Superpowers
+.agents/
+.opencode/
+.superpowers/
+skills-lock.json
+
+# Scripts de desenvolvimento
+scripts/
+scaffold.cjs
+generate_crud.cjs
+db-check.cjs
+db-clean.cjs
+scripts/
+
+# Arquivos órfãos de debug
+"console.log(e))"
+"r.text()).then(console.log).catch(console.log)"
+t)
+t.substring(0
+x
+test.js
+
+# Resultado de lint/format
+*.backup
+*.orig
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Configurações redundantes/descartáveis
+tsconfig.jest.json
+
+# Package manager lock (opcional —geralmente mantém o package-lock.json)
+# package-lock.json

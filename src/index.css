@@ -1,0 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-500: #d97706; /* amber-600 */
+  --color-brand-600: #b45309; /* amber-700 */
+  --color-accent-teal: #0f766e; /* teal-700 */
+}
+
+/* Força modo escuro em todo o sistema */
+body {
+  @apply bg-zinc-950 text-zinc-100 antialiased;
+}
