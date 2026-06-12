@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
-import crypto from 'crypto';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -39,7 +38,6 @@ import { notificationsRouter } from './src/modules/notifications/router';
 import { installmentsRouter } from './src/modules/installments/router';
 import { messageTemplatesRouter } from './src/modules/message_templates/router';
 import { pool } from './src/shared/config/db';
-import bcrypt from 'bcrypt';
 
 function validateRequiredEnv() {
   const required = ['DATABASE_URL', 'JWT_SECRET'];
@@ -72,80 +70,6 @@ function validateRequiredEnv() {
       process.exit(1);
     }
     console.warn('WARNING: APP_URL not set. Some features (Swagger, redirects) may not work correctly.');
-  }
-}
-
-async function ensureSecureAdmin() {
-  try {
-    // Generate a random admin email if not provided
-    let adminEmail = process.env.ADMIN_EMAIL;
-    if (!adminEmail) {
-      const randomSuffix = crypto.randomBytes(4).toString('hex'); // 8 hex chars
-      adminEmail = `admin-${randomSuffix}@kennelmanager.local`;
-      logger.warn(`[SECURITY] ADMIN_EMAIL not set. Using auto-generated: ${adminEmail}`);
-    }
-
-    const adminPassword = process.env.ADMIN_PASSWORD;
-
-    // Validate ADMIN_PASSWORD strength if provided
-    if (adminPassword && adminPassword.length < 12) {
-      console.error('FATAL: ADMIN_PASSWORD must be at least 12 characters long for security.');
-      process.exit(1);
-    }
-
-    // Check if the admin user exists
-    const checkRes = await pool.query('SELECT * FROM users WHERE email = $1', [adminEmail]);
-    
-    if (checkRes.rows.length === 0) {
-      // Admin does not exist, let's create it securely
-      let passwordToHash = adminPassword;
-      if (!passwordToHash) {
-        // Generate a secure random password using crypto
-        passwordToHash = crypto.randomBytes(15).toString('base64').slice(0, 20);
-        logger.warn('[SECURITY] Admin password generated. Admin user must check configured output for credentials.');
-      }
-      
-      const hash = await bcrypt.hash(passwordToHash, 10);
-      await pool.query(
-        'INSERT INTO users (name, email, password_hash, role, status, updated_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)',
-        ['Admin', adminEmail, hash, 'ADMIN', 'ACTIVE']
-      );
-      console.log(`[DB INIT] Default secure Admin user created with email: ${adminEmail}`);
-    } else {
-      const existingUser = checkRes.rows[0];
-      // Skip legacy hardcoded password check — seed data removed
-      const isHardcodedHash = false;
-      
-      if (isHardcodedHash) {
-        console.log('[SECURITY] Hardcoded password "123456" found for admin. Securing...');
-        let passwordToHash = adminPassword;
-        if (!passwordToHash) {
-          passwordToHash = crypto.randomBytes(15).toString('base64').slice(0, 20);
-        logger.info('[SECURITY] Legacy hardcoded admin password detected and secured.');
-        }
-        
-        const hash = await bcrypt.hash(passwordToHash, 10);
-        await pool.query(
-          'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-          [hash, existingUser.id]
-        );
-        console.log(`[DB SECURITY] Hardcoded admin password retired successfully.`);
-      } else if (adminPassword) {
-        // If ADMIN_PASSWORD is provided in env, synchronize as needed
-        const currentMatch = await bcrypt.compare(adminPassword, existingUser.password_hash);
-        if (!currentMatch) {
-          console.log('[DB SECURITY] Synchronizing admin password with current ADMIN_PASSWORD env variable...');
-          const hash = await bcrypt.hash(adminPassword, 10);
-          await pool.query(
-            'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-            [hash, existingUser.id]
-          );
-          console.log('[DB SECURITY] Admin password synchronized with env successfully.');
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[DB SECURITY INIT ERROR] Failed to secure admin user setup:', err);
   }
 }
 
@@ -376,9 +300,6 @@ async function startServer() {
       logger.error('[CLEANUP] Periodic refresh token cleanup failed:', { error: err });
     }
   }, 24 * 60 * 60 * 1000);
-
-  // Ensure admin user exists before starting to listen
-  await ensureSecureAdmin();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
