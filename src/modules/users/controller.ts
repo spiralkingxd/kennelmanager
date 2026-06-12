@@ -5,8 +5,6 @@ import { createUsersSchema, updateUsersSchema } from './schema';
 import { AppError } from '../../shared/utils/AppError';
 import { isolationUserId } from '../../shared/utils/adminHelpers';
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@admin.com';
-
 export class UsersController {
   private service: UsersService;
   constructor() {
@@ -22,10 +20,10 @@ export class UsersController {
       const { page, limit, skip, take } = getPaginationOptions(req.query as any);
       // Admins see ALL users; non-admins see only their own
       const { data, total } = await this.service.getAll(skip, take, isolationUserId(req));
-      // Mark the protected admin user (from .env) so the frontend knows which user is absolute
+      // Mark protected users so the frontend knows which are protected
       const enrichedData = data.map((u: any) => ({
         ...u,
-        isProtected: u.email === ADMIN_EMAIL,
+        isProtected: u.is_protected === true,
       }));
       return res.status(200).json({ success: true, message: 'Registros listados com sucesso.', data: enrichedData, meta: createPaginationMeta(total, page, limit) });
     } catch (error) { next(error); }
@@ -33,7 +31,7 @@ export class UsersController {
   public async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const data = await this.service.getById(req.params.id, isolationUserId(req));
-      return res.status(200).json({ success: true, message: 'Registro encontrado.', data: { ...data, isProtected: data?.email === ADMIN_EMAIL } });
+      return res.status(200).json({ success: true, message: 'Registro encontrado.', data: { ...data, isProtected: data?.is_protected === true } });
     } catch (error) { next(error); }
   }
   public async create(req: Request, res: Response, next: NextFunction) {
@@ -48,7 +46,7 @@ export class UsersController {
       const targetUser = await this.service.getById(req.params.id, isolationUserId(req));
       const payload = updateUsersSchema.parse(req.body);
       if (Object.keys(payload).length === 0) throw new AppError('Nenhum dado válido para atualização.', 400, true);
-      if (targetUser?.email === ADMIN_EMAIL) {
+      if (targetUser?.is_protected) {
         if (req.user?.role !== 'ADMIN') {
           throw new AppError('O administrador principal não pode ser modificado.', 403, true, 'PROTECTED_ADMIN');
         }
@@ -65,7 +63,7 @@ export class UsersController {
   public async delete(req: Request, res: Response, next: NextFunction) {
     try {
       const targetUser = await this.service.getById(req.params.id, isolationUserId(req));
-      if (targetUser?.email === ADMIN_EMAIL) {
+      if (targetUser?.is_protected) {
         throw new AppError('O administrador principal não pode ser removido.', 403, true, 'PROTECTED_ADMIN');
       }
       await this.service.delete(req.params.id, isolationUserId(req));
