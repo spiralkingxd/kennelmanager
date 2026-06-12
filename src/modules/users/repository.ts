@@ -1,7 +1,7 @@
 import { pool } from '../../shared/config/db';
 import { buildUpdateQuery } from '../../shared/utils/updateHelper';
 
-const USER_COLUMNS = 'id, name, email, phone, avatar_path, role, status, last_login, login_attempts, blocked_at, require_password_change, created_by, created_at, updated_at';
+const USER_COLUMNS = 'id, name, email, phone, avatar_path, role, status, last_login, login_attempts, blocked_at, require_password_change, is_protected, created_by, created_at, updated_at';
 
 export class UsersRepository {
   public async findAll(skip: number, take: number, userId?: string) {
