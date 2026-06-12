@@ -12,7 +12,6 @@ Sistema web completo de gestão de canil/gatil profissional. Cadastro genealógi
 - [Instalação](#instala%C3%A7%C3%A3o)
 - [Configuração](#configura%C3%A7%C3%A3o)
 - [Compilação e Execução](#compila%C3%A7%C3%A3o-e-execu%C3%A7%C3%A3o)
-- [Deploy na Vercel](#deploy-na-vercel)
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [Arquitetura e Funcionamento](#arquitetura-e-funcionamento)
 - [Comandos Úteis](#comandos-%C3%BAteis)
@@ -188,25 +187,6 @@ npm test
 npm run test:coverage
 ```
 
----
-
-## Deploy na Vercel
-
-1. Conecte seu repositório ao Vercel
-2. Configure as variáveis de ambiente no painel da Vercel:
-
-| Variável | Valor Exemplo |
-|----------|---------------|
-| `DATABASE_URL` | `postgresql://...` (string do Supabase) |
-| `JWT_SECRET` | chave de 32+ caracteres |
-| `ADMIN_EMAIL` | seu@email.com |
-| `ADMIN_PASSWORD` | senha forte (mín. 12 chars) |
-| `APP_URL` | `https://seu-app.vercel.app` |
-| `CORS_ORIGINS` | `https://seu-app.vercel.app` |
-
-> ⚠️ A Vercel define `NODE_ENV=production` automaticamente. Não é necessário configurar manualmente.
-
-3. Faça push para o GitHub → Vercel detecta e faz deploy automático
 
 ---
 
