@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS users (
   login_attempts INT DEFAULT 0,
   blocked_at TIMESTAMPTZ,
   require_password_change BOOLEAN DEFAULT FALSE,
+  is_protected BOOLEAN DEFAULT FALSE,
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -1135,10 +1136,12 @@ CREATE TRIGGER set_timestamp_system_config
 -- SEED DATA - Usuário Admin Padrão
 -- ####################################################################
 -- REMOVIDO: O seed de admin com senha "123456" foi removido por segurança.
--- O admin deve ser criado via variável ADMIN_PASSWORD ou via migration segura.
--- Se precisar criar admin em desenvolvimento, use:
---   INSERT INTO users (name, email, password_hash, role, status)
---   VALUES ('Admin', 'admin@admin.com', '$2b$10$YOUR_HASH', 'ADMIN', 'ACTIVE');
+-- O admin agora é gerenciado via banco de dados com coluna is_protected.
+-- A migration 001_add_is_protected.sql marca admins existentes como protegidos.
+-- Para criar o primeiro admin manualmente:
+--   1. Gere um hash bcrypt: node -e "require('bcrypt').hash('SENHA_TEMP', 10).then(console.log)"
+--   2. Insira: INSERT INTO users (name, email, password_hash, role, status, is_protected, require_password_change)
+--      VALUES ('Admin', 'admin@exemplo.com', 'SEU_HASH_AQUI', 'ADMIN', 'ACTIVE', TRUE, TRUE);
 -- DO $$
 -- BEGIN
 --   IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@admin.com') THEN
