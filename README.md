@@ -106,15 +106,6 @@ JWT_SECRET="sua-chave-com-pelo-menos-32-caracteres-aqui"
 
 Deve ser uma chave forte (32+ caracteres). Pode gerar com: `openssl rand -base64 32`
 
-### Admin inicial
-
-```env
-ADMIN_EMAIL="admin@exemplo.com"
-ADMIN_PASSWORD="sua-senha-forte-aqui-12+caracteres"
-```
-
-> ⚠️ A senha deve ter no mínimo **12 caracteres**. Se não for definida, o sistema gera uma senha segura automaticamente e exibe no console na primeira execução.
-
 ### CORS
 
 ```env
@@ -123,14 +114,16 @@ CORS_ORIGINS="http://localhost:3000,http://localhost:5173"
 
 Em produção, defina o domínio real do seu site.
 
+### Usuário Admin
+
+O administrador do sistema é gerenciado diretamente pelo banco de dados. O primeiro admin pode ser criado via SQL migration ou pela interface de usuários do sistema (após login com um admin existente). Usuários com papel `ADMIN` e coluna `is_protected = TRUE` são protegidos contra exclusão e alterações indevidas.
+
 ### Resumo de todas as variáveis
 
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
 | `DATABASE_URL` | ✅ Sim | String de conexão PostgreSQL |
 | `JWT_SECRET` | ✅ Sim | Chave secreta JWT (32+ chars) |
-| `ADMIN_EMAIL` | ❌ Não | Email do admin inicial |
-| `ADMIN_PASSWORD` | ❌ Não | Senha do admin inicial (12+ chars) |
 | `CORS_ORIGINS` | ❌ Não | Origens permitidas separadas por vírgula |
 | `NODE_ENV` | ❌ Não | `development` (padrão) ou `production` |
 
