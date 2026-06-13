@@ -17,9 +17,19 @@ function getPool(): Pool {
       );
     }
 
+    // Ensure sslmode=require is set for external connections (Supabase pooler requires SSL)
+    const isLocal = connectionString.includes('localhost');
+    const url = new URL(connectionString);
+    if (!isLocal && !url.searchParams.has('sslmode')) {
+      url.searchParams.set('sslmode', 'require');
+    }
+    const finalUrl = isLocal ? connectionString : url.toString();
+
+    console.log(`[DB] Connecting to: ${url.hostname}:${url.port || '5432'}${url.pathname}`);
+
     _pool = new Pool({
-      connectionString,
-      ssl: connectionString.includes('localhost')
+      connectionString: finalUrl,
+      ssl: isLocal
         ? false
         : process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false'
           ? { rejectUnauthorized: false }
