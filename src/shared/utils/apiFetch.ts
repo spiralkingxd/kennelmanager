@@ -3,6 +3,9 @@ const REFRESH_TOKEN_COOKIE = 'kennelmanager_refresh_token';
 const USER_KEY = 'kennelmanager_user';
 const API_PREFIX = '/api/v1';
 
+/** Prevents multiple parallel 401/403 responses from all triggering redirect */
+let isRedirecting = false;
+
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? match[2] : null;
@@ -39,16 +42,22 @@ export async function apiFetch<T = any>(url: string, options: RequestInit = {}):
   if (!res.ok) {
     // 401 — token expirado ou inválido: limpa sessão e redireciona
     if (res.status === 401) {
-      clearSessionCookies();
-      localStorage.removeItem(USER_KEY);
-      window.location.href = '/';
+      if (!isRedirecting) {
+        isRedirecting = true;
+        clearSessionCookies();
+        localStorage.removeItem(USER_KEY);
+        window.location.href = '/';
+      }
       throw new Error('Sessão expirada. Faça login novamente.');
     }
     // SEG-002: 403 — CSRF token inválido: limpa sessão e redireciona
     if (res.status === 403) {
-      clearSessionCookies();
-      localStorage.removeItem(USER_KEY);
-      window.location.href = '/';
+      if (!isRedirecting) {
+        isRedirecting = true;
+        clearSessionCookies();
+        localStorage.removeItem(USER_KEY);
+        window.location.href = '/';
+      }
       throw new Error('Sessão inválida. Faça login novamente.');
     }
     const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));

@@ -37,23 +37,25 @@ export class AuthController {
 
       // SEG-001: Set cookies for tokens
       // path: '/' ensures cookies are sent on ALL requests, not just /api/v1/auth/login
+      // sameSite: 'lax' — 'strict' prevents cookies from being attached to the first
+      // fetch() calls after login in some browsers, causing an immediate 401 → redirect loop.
       const cookieOptions = {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict' as const,
+        sameSite: 'lax' as const,
         path: '/',
       };
       const refreshCookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict' as const,
+        sameSite: 'lax' as const,
         path: '/',
       };
       res.cookie('kennelmanager_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
       // SEG-002: Set non-httpOnly CSRF cookie (readable by JS)
       const csrfToken = crypto.randomBytes(32).toString('hex');
-      res.cookie('csrf-token', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.cookie('csrf-token', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 7 * 24 * 60 * 60 * 1000 });
 
       return res.status(200).json({
         success: true,
@@ -84,13 +86,13 @@ export class AuthController {
       const cookieOptions = {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict' as const,
+        sameSite: 'lax' as const,
         path: '/',
       };
       const refreshCookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict' as const,
+        sameSite: 'lax' as const,
         path: '/',
       };
       res.cookie('kennelmanager_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
