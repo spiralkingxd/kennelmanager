@@ -20,37 +20,56 @@ async function getApp(): Promise<Application> {
 async function initializeApp(): Promise<void> {
   try {
     // Dynamic import catches ALL transitive module-level failures
-    const expressModule = await import('express');
-    const { configureApp, validateRequiredEnv } = await import('../src/expressApp');
+    const appModule = await import('../src/expressApp');
+    const { configureApp, validateRequiredEnv } = appModule;
 
     validateRequiredEnv();
-    const app = configureApp();
+    cachedApp = configureApp();
 
     // Background tasks (fire-and-forget — never block the response)
-    import('../src/expressApp').then(({ runStartupTasks }) => {
-      runStartupTasks().catch((err: Error) => {
-        console.error('[VERCEL] Background startup tasks failed:', err?.message || err);
-      });
+    // Runs after app is set so cold start returns fast
+    appModule.runStartupTasks().catch((err: Error) => {
+      console.error('[VERCEL] Background startup tasks failed:', err?.message || err);
     });
-
-    cachedApp = app;
   } catch (err: any) {
     console.error('[VERCEL] Startup failed:', err?.message || err);
-    // Graceful error app — never leak stack traces
-    const express = (await import('express')).default;
-    const errorApp = express();
-    errorApp.all('*', (_req, res) => {
-      res.status(500).json({
-        success: false,
-        message: 'Server configuration error. Please check environment variables.',
-        code: 'VERCEL_CONFIG_ERROR',
+    // Graceful error app — never leak stack traces to client
+    try {
+      const express = (await import('express')).default;
+      const errorApp = express();
+      errorApp.all('*', (_req, res) => {
+        res.status(500).json({
+          success: false,
+          message: 'Server configuration error. Please check environment variables.',
+          code: 'VERCEL_CONFIG_ERROR',
+        });
       });
-    });
-    cachedApp = errorApp;
+      cachedApp = errorApp;
+    } catch (fallbackErr) {
+      // Absolute last resort — nothing works, return a bare 500
+      console.error('[VERCEL] Fatal: even error app creation failed:', fallbackErr);
+      cachedApp = ((_req: any, res: any) => {
+        res.statusCode = 500;
+        res.end('500 Internal Server Error');
+      }) as unknown as Application;
+    }
   }
 }
 
 export default async function handler(req: any, res: any) {
-  const app = await getApp();
-  app(req, res);
+  try {
+    const app = await getApp();
+    app(req, res);
+  } catch (err: any) {
+    console.error('[VERCEL] Handler fatal error:', err?.message || err);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        success: false,
+        message: 'Unexpected server error.',
+        code: 'VERCEL_HANDLER_ERROR',
+      }));
+    }
+  }
 }
