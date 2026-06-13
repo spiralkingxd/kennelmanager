@@ -2,14 +2,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "builds": [
-    { "src": "api/index.ts", "use": "@vercel/node" }
-  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
   ],
   "functions": {
-    "api/index.ts": {
+    "api/*.ts": {
       "memory": 256,
       "maxDuration": 30
     }
