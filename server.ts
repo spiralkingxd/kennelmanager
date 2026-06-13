@@ -1,45 +1,40 @@
 import 'dotenv/config';
-import { createServer as createViteServer } from 'vite';
 
 import { configureApp, validateRequiredEnv, runStartupTasks } from './src/expressApp';
+import type { Express } from 'express';
 
-async function main() {
-  // Validate environment variables
-  try {
-    validateRequiredEnv();
-  } catch (err: any) {
-    console.error('FATAL:', err.message);
-    process.exit(1);
-  }
+// Cria o app Express (sync)
+validateRequiredEnv();
+const app: Express = configureApp();
 
-  // Configure the Express app
-  const app = configureApp();
-  const PORT = parseInt(process.env.PORT || '3000', 10);
+// Startup tasks rodam em background (não bloqueiam)
+runStartupTasks().catch(err => {
+  console.error('[STARTUP] Background tasks failed:', err);
+});
 
-  // In development, add Vite middleware for HMR and TSX compilation
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  }
+// Em ambiente local/container, inicia o servidor HTTP
+// Vercel: o handler em api/index.ts usa o app exportado (não chama listen)
+if (!process.env.VERCEL) {
+  // Inicialização local com lazy import para Vite (apenas dev)
+  (async () => {
+    const PORT = parseInt(process.env.PORT || '3000', 10);
 
-  // Run background startup tasks (token cleanup, etc.)
-  runStartupTasks().catch(err => {
-    console.error('[STARTUP] Background tasks failed:', err);
-  });
-
-  // Start listening
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`Swagger docs available at http://localhost:${PORT}/api/docs`);
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
     }
-  });
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Swagger docs available at http://localhost:${PORT}/api/docs`);
+      }
+    });
+  })();
 }
 
-main().catch(err => {
-  console.error('Failed to start server', err);
-  process.exit(1);
-});
+export default app;

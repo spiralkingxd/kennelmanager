@@ -47,13 +47,14 @@ export function validateRequiredEnv() {
     throw new Error('JWT_SECRET must be at least 32 characters long for security.');
   }
 
-  const validEnvs = ['production', 'development', 'test'];
-  if (!process.env.NODE_ENV || !validEnvs.includes(process.env.NODE_ENV)) {
-    throw new Error(`NODE_ENV must be one of: ${validEnvs.join(', ')}. Current value: "${process.env.NODE_ENV}"`);
+  // Validação flexível de NODE_ENV — aceita Vercel (production) e ambientes custom
+  if (!process.env.NODE_ENV) {
+    console.warn('[ENV] NODE_ENV not set. Defaulting to "production".');
+    process.env.NODE_ENV = 'production';
   }
 
   if (!process.env.APP_URL && process.env.NODE_ENV === 'production') {
-    console.warn('WARNING: APP_URL not set. Some features (Swagger, redirects) may not work correctly.');
+    console.warn('[ENV] APP_URL not set. Some features (Swagger, redirects) may not work correctly.');
   }
 }
 
@@ -101,17 +102,20 @@ export function configureApp() {
   // 2. Compression middleware
   app.use(compression());
 
-  // 3. CORS
+  // 3. CORS — safe defaults, never throw (prevents crash on Vercel cold start)
   const rawOrigins = env.CORS_ORIGINS || '';
-  if (!rawOrigins && process.env.NODE_ENV === 'production') {
-    throw new Error('CORS_ORIGINS is required in production environments.');
-  }
   const corsOrigins = rawOrigins.split(',').map(s => s.trim());
-  if (corsOrigins.includes('*') && process.env.NODE_ENV === 'production') {
-    throw new Error('CORS_ORIGINS cannot contain wildcard "*" in production.');
+  if (!rawOrigins && process.env.NODE_ENV === 'production') {
+    console.warn('[CORS] CORS_ORIGINS not set. Allowing same-origin only.');
   }
+  if (corsOrigins.includes('*') && process.env.NODE_ENV === 'production') {
+    console.warn('[CORS] CORS_ORIGINS contains wildcard "*". Falling back to same-origin only.');
+  }
+  const corsOrigin = (corsOrigins.length > 0 && corsOrigins[0] !== '' && !corsOrigins.includes('*'))
+    ? corsOrigins
+    : false;
   app.use(cors({
-    origin: corsOrigins.length > 0 && corsOrigins[0] !== '' ? corsOrigins : false,
+    origin: corsOrigin,
     credentials: true,
   }));
 
