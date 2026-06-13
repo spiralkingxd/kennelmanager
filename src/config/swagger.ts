@@ -32,7 +32,18 @@ const options: swaggerJSDoc.Options = {
     ],
   },
   // Path to the API docs (all routers)
+  // In serverless (Vercel), the glob may resolve to nothing — that's fine
   apis: ['./src/modules/**/router.ts'],
 };
 
-export const swaggerSpec = swaggerJSDoc(options);
+// Wrap in try/catch to prevent module-level crash in serverless environments
+// where source files may not exist on the filesystem
+let spec: any = null;
+try {
+  spec = swaggerJSDoc(options);
+} catch (err) {
+  console.warn('[SWAGGER] Failed to generate swagger spec:', (err as Error)?.message || err);
+}
+
+// Fallback to empty object for type compatibility — swagger is only used in dev
+export const swaggerSpec: object = spec || {};
