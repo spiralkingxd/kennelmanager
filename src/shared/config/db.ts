@@ -12,7 +12,9 @@ export const pool = new Pool({
     ? false
     : process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false'
       ? { rejectUnauthorized: false }
-      : { rejectUnauthorized: true, ca: (process.env.DB_CA_CERT || undefined) },
+      : process.env.DB_CA_CERT
+        ? { rejectUnauthorized: true, ca: process.env.DB_CA_CERT }
+        : { rejectUnauthorized: false },
   max: parseInt(process.env.DB_POOL_MAX || '5', 10),
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 10000,
