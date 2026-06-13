@@ -240,7 +240,24 @@ export function configureApp() {
 }
 
 export async function runStartupTasks() {
-  // Clean up expired refresh tokens on startup
+  // In Vercel serverless, skip startup tasks — setInterval doesn't work
+  // (instance is destroyed after each request) and cleanup runs on every cold start anyway.
+  const isVercel = !!process.env.VERCEL;
+  if (isVercel) {
+    // Run cleanup once on cold start, but skip periodic interval
+    try {
+      const authRepo = new AuthRepository();
+      const deletedCount = await authRepo.cleanupExpiredRefreshTokens(30);
+      if (deletedCount > 0) {
+        logger.info(`[CLEANUP] Removed ${deletedCount} expired/revoked refresh tokens.`);
+      }
+    } catch (err) {
+      logger.error('[CLEANUP] Failed to clean up expired refresh tokens:', { error: err });
+    }
+    return;
+  }
+
+  // Clean up expired refresh tokens on startup (local/VM only)
   try {
     const authRepo = new AuthRepository();
     const deletedCount = await authRepo.cleanupExpiredRefreshTokens(30);
@@ -251,7 +268,7 @@ export async function runStartupTasks() {
     logger.error('[CLEANUP] Failed to clean up expired refresh tokens:', { error: err });
   }
 
-  // Periodic cleanup every 24 hours
+  // Periodic cleanup every 24 hours (only works in long-running processes)
   setInterval(async () => {
     try {
       const authRepo = new AuthRepository();

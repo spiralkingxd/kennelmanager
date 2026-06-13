@@ -1,17 +1,10 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
-import { env } from 'process';
 import { AppError } from '../shared/utils/AppError';
 
-// Define the root upload directory based on environment variable or default
-const uploadRoot = env.UPLOAD_PATH || path.join(process.cwd(), 'uploads');
-
-// Ensure root directory exists
-if (!fs.existsSync(uploadRoot)) {
-  fs.mkdirSync(uploadRoot, { recursive: true });
-}
+// Vercel-compatible: use memoryStorage instead of diskStorage.
+// In Vercel serverless, the filesystem is read-only (except /tmp).
+// Files are stored in memory as buffers — use Supabase Storage or S3 for persistence.
+const storage = multer.memoryStorage();
 
 // Allowed file types
 const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
@@ -33,33 +26,6 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
     sig.every((byte, i) => buffer[i] === byte)
   );
 }
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Organise files into subdirectories based on their fieldname or module name
-    // Assuming the router provides req.params.module or we use fieldname
-    const moduleName = (req.params.module || file.fieldname || 'misc')
-      .replace(/[^a-zA-Z0-9_-]/g, '');
-    if (!moduleName) return cb(new AppError('Invalid module name', 400), '');
-
-    const folderPath = path.join(uploadRoot, moduleName);
-    const resolvedPath = path.resolve(folderPath);
-    if (!resolvedPath.startsWith(path.resolve(uploadRoot))) {
-      return cb(new AppError('Invalid path', 400), '');
-    }
-
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-    }
-
-    cb(null, folderPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + crypto.randomBytes(6).toString('hex');
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-  }
-});
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   if (allowedMimeTypes.has(file.mimetype)) {
@@ -83,12 +49,8 @@ export const uploadConfig = multer({
 export function validateUploadedFile(req: any, _res: any, next: any) {
   if (!req.file) return next();
   try {
-    const buffer = Buffer.alloc(8);
-    const fd = fs.openSync(req.file.path, 'r');
-    fs.readSync(fd, buffer, 0, 8, 0);
-    fs.closeSync(fd);
-    if (!validateMagicBytes(buffer, req.file.mimetype)) {
-      fs.unlinkSync(req.file.path);
+    // memoryStorage: file.buffer is available directly — no disk I/O needed
+    if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
       return next(new AppError('Arquivo corrompido ou tipo não corresponde ao conteúdo.', 400, true));
     }
   } catch (err) {
