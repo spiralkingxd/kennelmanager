@@ -35,17 +35,24 @@ export class AuthController {
         userAgent: req.headers['user-agent'],
       }).catch(err => console.error('Audit log error:', err));
 
-      // SEG-001: Set httpOnly cookies for tokens (XSS protection)
+      // SEG-001: Set cookies for tokens
+      // kennelmanager_token: httpOnly=false para JS ler e enviar como Bearer header
+      // kennelmanager_refresh_token: httpOnly=true (não exposto ao JS)
       const cookieOptions = {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict' as const,
+      };
+      const refreshCookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict' as const,
       };
       res.cookie('kennelmanager_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+      res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
       // SEG-002: Set non-httpOnly CSRF cookie (readable by JS)
       const csrfToken = crypto.randomBytes(32).toString('hex');
-      res.cookie('csrf-token', csrfToken, { httpOnly: false, secure: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.cookie('csrf-token', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 });
 
       return res.status(200).json({
         success: true,
@@ -72,14 +79,19 @@ export class AuthController {
       const { refreshToken } = refreshTokenSchema.parse(req.body);
       const result = await this.authService.refresh(refreshToken);
 
-      // SEG-001: Refresh httpOnly cookies
+      // SEG-001: Refresh cookies
       const cookieOptions = {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict' as const,
+      };
+      const refreshCookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict' as const,
       };
       res.cookie('kennelmanager_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+      res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
 
       return res.status(200).json({
         success: true,
