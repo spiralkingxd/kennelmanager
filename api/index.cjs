@@ -8,7 +8,3 @@
 const { default: app } = require('../dist/server.cjs');
 
 module.exports = app;
-module.exports.config = {
-  runtime: 'nodejs20.x',
-  maxDuration: 30,
-};
