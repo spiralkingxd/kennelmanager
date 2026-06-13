@@ -1,9 +1,6 @@
 // Vercel serverless function — thin wrapper over bundled Express app.
-// esbuild with --format=cjs wraps "export default" as module.exports.default,
-// so we access the .default property to get the actual Express app.
+// esbuild --format=esm produces a proper ESM module with "export default".
 
-import wrapper from '../dist/server.cjs';
-
-const app = wrapper.default ?? wrapper;
+import app from '../dist/server.mjs';
 
 export default app;
