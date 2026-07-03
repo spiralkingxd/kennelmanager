@@ -1,16 +1,28 @@
+# ==========================================
 # Environment
+# ==========================================
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 !.env.example
 
+# ==========================================
+# Dependencies
+# ==========================================
+node_modules/
+
+# ==========================================
 # Build & Distribution
+# ==========================================
 dist/
 build/
 *.tsbuildinfo
 
-# Dependencies
-node_modules/
-
+# ==========================================
 # Testes
+# ==========================================
 coverage/
 test-results/
 playwright-report/
@@ -18,54 +30,81 @@ playwright-report/
 *.spec.ts
 tests/
 
+# ==========================================
 # Logs
+# ==========================================
 logs/
 *.log
 lint-fix-output.txt
 
-# Documentation & arquivos de análise
-README.md
-CLAUDE.md
-AGENTS.md
-analise.html
-relatorio.html
-stats.html
-docs/
-.sum/
-
-
-# OpenCode / Superpowers
-.agents/
-.opencode/
-.superpowers/
-skills-lock.json
-
-# Scripts de desenvolvimento
+# ==========================================
+# Scripts de desenvolvimento (temporários)
+# ==========================================
 scripts/
 scaffold.cjs
 generate_crud.cjs
 db-check.cjs
 db-clean.cjs
-scripts/
+ecosystem.config.cjs
 
-# Arquivos órfãos de debug
-"console.log(e))"
-"r.text()).then(console.log).catch(console.log)"
-t)
-t.substring(0
-x
-test.js
+# ==========================================
+# Análises e relatórios gerados
+# ==========================================
+analise.html
+relatorio.html
+stats.html
 
+# ==========================================
+# Documentação (gerenciada separadamente)
+# ==========================================
+README.md
+CLAUDE.md
+AGENTS.md
+SEC.md
+docs/
+.sum/
+
+# ==========================================
+# OpenCode / Superpowers / AI
+# ==========================================
+.agents/
+.opencode/
+.superpowers/
+skills-lock.json
+
+# ==========================================
 # Resultado de lint/format
+# ==========================================
 *.backup
 *.orig
 
+# ==========================================
+# IDEs e Editores
+# ==========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.kate-swp
+.project
+.settings/
+
+# ==========================================
 # OS
+# ==========================================
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .DS_Store
+._*
 
-# Configurações redundantes/descartáveis
-tsconfig.jest.json
-
-# Package manager lock (opcional —geralmente mantém o package-lock.json)
-# package-lock.json
+# ==========================================
+# Cache e temporários
+# ==========================================
+.cache/
+*.tmp
+*.temp
+.vercel/
+.netlify/
+*.pid

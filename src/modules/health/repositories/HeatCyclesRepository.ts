@@ -1,5 +1,5 @@
 import { pool } from '../../../shared/config/db';
-import { buildUpdateQuery } from './updateHelper';
+import { buildUpdateQuery } from '../../../shared/utils/updateHelper';
 
 export const heatCyclesRepository = {
   async findHeatCyclesByAnimal(animalId: string, userId?: string) {

@@ -95,7 +95,7 @@ export class FinancialRepository {
 
   public async findByDescription(description: string, userId?: string) {
     const res = await pool.query(
-      'SELECT * FROM financial_transactions WHERE description = $1 AND ($2::uuid IS NULL OR created_by = $2) LIMIT 1',
+      'SELECT id, type, category, amount, date, description, status, payment_method, due_date, paid_date, receipt_url, animal_id, client_id, puppy_id, litter_id, created_by, created_at, updated_at FROM financial_transactions WHERE description = $1 AND ($2::uuid IS NULL OR created_by = $2) LIMIT 1',
       [description, userId ?? null]
     );
     return res.rows[0] || null;
@@ -104,7 +104,7 @@ export class FinancialRepository {
   public async create(data: any) {
     const res = await pool.query(
       `INSERT INTO financial_transactions (type, category, amount, date, description, due_date, paid_date, receipt_url, status, payment_method, client_id, puppy_id, animal_id, litter_id, created_by, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP) RETURNING id, type, category, amount, date, description, status, payment_method, due_date, paid_date, receipt_url, animal_id, client_id, puppy_id, litter_id, created_by, created_at, updated_at`,
       [data.type, data.category || 'OTHER', data.amount, data.date ? new Date(data.date) : null, data.description || null, data.dueDate ? new Date(data.dueDate) : null, data.paidDate ? new Date(data.paidDate) : null, data.receiptUrl || null, data.status || 'PENDING', data.paymentMethod || null, data.clientId || null, data.puppyId || null, data.animalId || null, data.litterId || null, data.createdBy]
     );
     return res.rows[0];
@@ -137,7 +137,7 @@ export class FinancialRepository {
   }
 
   public async delete(id: string, userId?: string) {
-    const query = 'DELETE FROM financial_transactions WHERE id = $1 AND ($2::uuid IS NULL OR created_by = $2) RETURNING *';
+    const query = 'DELETE FROM financial_transactions WHERE id = $1 AND ($2::uuid IS NULL OR created_by = $2) RETURNING id, type, category, amount, date, description, status, payment_method, due_date, paid_date, receipt_url, animal_id, client_id, puppy_id, litter_id, created_by, created_at, updated_at';
     const params: any[] = [id, userId ?? null];
     const res = await pool.query(query, params);
     return res.rows[0];

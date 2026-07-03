@@ -1,5 +1,5 @@
 import { pool } from '../../../shared/config/db';
-import { buildUpdateQuery } from './updateHelper';
+import { buildUpdateQuery } from '../../../shared/utils/updateHelper';
 
 export const dewormingRepository = {
   async findDewormingByAnimal(animalId: string, userId?: string) {

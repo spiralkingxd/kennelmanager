@@ -17,15 +17,16 @@ function getPool(): Pool {
       );
     }
 
-    // Ensure sslmode=require is set for external connections (Supabase pooler requires SSL)
+    // For external connections (Supabase), SSL is configured via the `ssl` option below.
+    // Do NOT add sslmode=require to the URL — pg v8+ treats it as verify-full,
+    // which ignores ssl.rejectUnauthorized and breaks self-signed certs.
     const isLocal = connectionString.includes('localhost');
     const url = new URL(connectionString);
-    if (!isLocal && !url.searchParams.has('sslmode')) {
-      url.searchParams.set('sslmode', 'require');
-    }
+    // Remove sslmode from URL to prevent pg from overriding our ssl config
+    url.searchParams.delete('sslmode');
     const finalUrl = isLocal ? connectionString : url.toString();
 
-    console.log(`[DB] Connecting to: ${url.hostname}:${url.port || '5432'}${url.pathname}`);
+    console.log('[DB] Initializing PostgreSQL connection pool');
 
     _pool = new Pool({
       connectionString: finalUrl,
@@ -44,7 +45,7 @@ function getPool(): Pool {
     });
 
     _pool.on('error', (err) => {
-      console.error('[DB POOL] Unexpected error on idle client:', err);
+      console.error('[DB POOL] Unexpected error on idle client:', err.message);
     });
 
     console.log('[DB] PostgreSQL pool created successfully');

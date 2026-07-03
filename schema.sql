@@ -38,7 +38,7 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'document_type'
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'cost_category') THEN CREATE TYPE cost_category AS ENUM ('FOOD', 'VET', 'VACCINES', 'DEWORMING', 'EXAMS', 'MEDICATION', 'REPRODUCTION', 'EXHIBITION', 'INFRASTRUCTURE', 'MARKETING', 'LABOR', 'OTHER'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_type') THEN CREATE TYPE event_type AS ENUM ('VACCINE', 'DEWORMING', 'OTHER'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'entry_type') THEN CREATE TYPE entry_type AS ENUM ('INCOME', 'EXPENSE'); END IF; END $$;
-DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'audit_action') THEN CREATE TYPE audit_action AS ENUM ('CREATED', 'UPDATED', 'DELETED', 'VIEWED', 'LOGIN', 'LOGOUT', 'PASSWORD_RESET'); END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'audit_action') THEN CREATE TYPE audit_action AS ENUM ('CREATED', 'UPDATED', 'DELETED', 'VIEWED', 'LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_RESET'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'litter_status') THEN CREATE TYPE litter_status AS ENUM ('PLANNED', 'CONFIRMED', 'BORN', 'WEANING', 'COMPLETED', 'CANCELED'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'medication_status') THEN CREATE TYPE medication_status AS ENUM ('ACTIVE', 'COMPLETED', 'CANCELED', 'SUSPENDED'); END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'event_status') THEN CREATE TYPE event_status AS ENUM ('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELED'); END IF; END $$;
@@ -99,18 +99,19 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'usuarios_editam_eles_mesmos' AND tablename = 'users') THEN
   CREATE POLICY "usuarios_editam_eles_mesmos" ON users
   FOR ALL TO authenticated
-  USING (user_id() = id)
-  WITH CHECK (user_id() = id);
+  USING ((select user_id()) = id)
+  WITH CHECK ((select user_id()) = id);
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_tudo_users' AND tablename = 'users') THEN
   CREATE POLICY "admins_tudo_users" ON users
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_users ON users;
@@ -134,15 +135,8 @@ CREATE OR REPLACE FUNCTION app.is_admin() RETURNS BOOLEAN AS $$
 SELECT NULLIF(current_setting('app.is_admin', true), '') = 'true';
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
--- For tables using user_id column (audit_log, client_interactions)
-CREATE OR REPLACE FUNCTION app.current_user_id_user_col() RETURNS UUID AS $$
-SELECT NULLIF(current_setting('app.current_user_id', true), '')::UUID;
-$$ LANGUAGE SQL STABLE SECURITY DEFINER;
-
--- For tables using uploaded_by column (documents)
-CREATE OR REPLACE FUNCTION app.current_user_id_uploaded_by() RETURNS UUID AS $$
-SELECT NULLIF(current_setting('app.current_user_id', true), '')::UUID;
-$$ LANGUAGE SQL STABLE SECURITY DEFINER;
+-- NOTE: app.current_user_id_user_col() and app.current_user_id_uploaded_by() were
+-- removed as redundant aliases. Use app.current_user_id() for all app-level user isolation.
 
 -- ####################################################################
 -- TABELA: CLIENTS (CRM)
@@ -169,17 +163,18 @@ CREATE TABLE IF NOT EXISTS clients (
 );
 
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_comercial_clients' AND tablename = 'clients') THEN
   CREATE POLICY "admins_comercial_clients" ON clients
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('COMMERCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'readonly_clients' AND tablename = 'clients') THEN
   CREATE POLICY "readonly_clients" ON clients
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_clients ON clients;
@@ -225,17 +220,18 @@ CREATE TABLE IF NOT EXISTS animals (
 );
 
 ALTER TABLE animals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE animals FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_tudo_animals' AND tablename = 'animals') THEN
   CREATE POLICY "admins_tudo_animals" ON animals
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'vet_comercial_animals' AND tablename = 'animals') THEN
   CREATE POLICY "vet_comercial_animals" ON animals
   FOR ALL TO authenticated
-  USING (has_role('VET') OR has_role('COMMERCIAL'));
+  USING ((select has_role('VET')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_animals ON animals;
@@ -266,17 +262,18 @@ CREATE TABLE IF NOT EXISTS client_interactions (
 );
 
 ALTER TABLE client_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_interactions FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_comercial_interactions' AND tablename = 'client_interactions') THEN
   CREATE POLICY "admins_comercial_interactions" ON client_interactions
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('COMMERCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_interactions' AND tablename = 'client_interactions') THEN
   CREATE POLICY "read_interactions" ON client_interactions
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR user_id = app.current_user_id_user_col());
+  USING ((select app.is_admin()) OR user_id = (select app.current_user_id()));
 END IF; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_interactions_client ON client_interactions(client_id);
@@ -302,11 +299,12 @@ CREATE TABLE IF NOT EXISTS waitlist (
 );
 
 ALTER TABLE waitlist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE waitlist FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_comercial_waitlist' AND tablename = 'waitlist') THEN
   CREATE POLICY "admins_comercial_waitlist" ON waitlist
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('COMMERCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_waitlist ON waitlist;
@@ -340,17 +338,18 @@ CREATE TABLE IF NOT EXISTS litters (
 );
 
 ALTER TABLE litters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE litters FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_litters' AND tablename = 'litters') THEN
   CREATE POLICY "admins_vet_litters" ON litters
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_litters' AND tablename = 'litters') THEN
   CREATE POLICY "read_litters" ON litters
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_litters ON litters;
@@ -388,17 +387,18 @@ CREATE TABLE IF NOT EXISTS puppies (
 );
 
 ALTER TABLE puppies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE puppies FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_comercial_puppies' AND tablename = 'puppies') THEN
   CREATE POLICY "admins_vet_comercial_puppies" ON puppies
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET') OR has_role('COMMERCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_puppies' AND tablename = 'puppies') THEN
   CREATE POLICY "read_puppies" ON puppies
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_puppies ON puppies;
@@ -430,11 +430,12 @@ CREATE TABLE IF NOT EXISTS sales (
 );
 
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_comercial_sales' AND tablename = 'sales') THEN
   CREATE POLICY "admins_comercial_sales" ON sales
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('COMMERCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_sales ON sales;
@@ -467,17 +468,18 @@ CREATE TABLE IF NOT EXISTS vaccines (
 );
 
 ALTER TABLE vaccines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vaccines FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_vaccines' AND tablename = 'vaccines') THEN
   CREATE POLICY "admins_vet_vaccines" ON vaccines
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_vaccines' AND tablename = 'vaccines') THEN
   CREATE POLICY "read_vaccines" ON vaccines
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_vaccines ON vaccines;
@@ -509,17 +511,18 @@ CREATE TABLE IF NOT EXISTS deworming (
 );
 
 ALTER TABLE deworming ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deworming FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_deworming' AND tablename = 'deworming') THEN
   CREATE POLICY "admins_vet_deworming" ON deworming
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_deworming' AND tablename = 'deworming') THEN
   CREATE POLICY "read_deworming" ON deworming
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_deworming ON deworming;
@@ -551,17 +554,18 @@ CREATE TABLE IF NOT EXISTS exams (
 );
 
 ALTER TABLE exams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exams FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_exams' AND tablename = 'exams') THEN
   CREATE POLICY "admins_vet_exams" ON exams
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_exams' AND tablename = 'exams') THEN
   CREATE POLICY "read_exams" ON exams
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_exams ON exams;
@@ -592,17 +596,18 @@ CREATE TABLE IF NOT EXISTS medications (
 );
 
 ALTER TABLE medications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE medications FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_medications' AND tablename = 'medications') THEN
   CREATE POLICY "admins_vet_medications" ON medications
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_medications' AND tablename = 'medications') THEN
   CREATE POLICY "read_medications" ON medications
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_medications ON medications;
@@ -635,17 +640,18 @@ CREATE TABLE IF NOT EXISTS consultations (
 );
 
 ALTER TABLE consultations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE consultations FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_consultations' AND tablename = 'consultations') THEN
   CREATE POLICY "admins_vet_consultations" ON consultations
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_consultations' AND tablename = 'consultations') THEN
   CREATE POLICY "read_consultations" ON consultations
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_consultations ON consultations;
@@ -670,17 +676,18 @@ CREATE TABLE IF NOT EXISTS weight_history (
 );
 
 ALTER TABLE weight_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weight_history FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_weight' AND tablename = 'weight_history') THEN
   CREATE POLICY "admins_vet_weight" ON weight_history
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_weight' AND tablename = 'weight_history') THEN
   CREATE POLICY "read_weight" ON weight_history
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_weight_animal ON weight_history(animal_id);
@@ -704,17 +711,18 @@ CREATE TABLE IF NOT EXISTS heat_cycles (
 );
 
 ALTER TABLE heat_cycles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heat_cycles FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_heatcycles' AND tablename = 'heat_cycles') THEN
   CREATE POLICY "admins_vet_heatcycles" ON heat_cycles
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_heatcycles' AND tablename = 'heat_cycles') THEN
   CREATE POLICY "read_heatcycles" ON heat_cycles
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_heat_cycles ON heat_cycles;
@@ -743,17 +751,18 @@ CREATE TABLE IF NOT EXISTS matings (
 );
 
 ALTER TABLE matings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE matings FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_matings' AND tablename = 'matings') THEN
   CREATE POLICY "admins_vet_matings" ON matings
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_matings' AND tablename = 'matings') THEN
   CREATE POLICY "read_matings" ON matings
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_matings ON matings;
@@ -785,17 +794,18 @@ CREATE TABLE IF NOT EXISTS gestations (
 );
 
 ALTER TABLE gestations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE gestations FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_gestations' AND tablename = 'gestations') THEN
   CREATE POLICY "admins_vet_gestations" ON gestations
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_gestations' AND tablename = 'gestations') THEN
   CREATE POLICY "read_gestations" ON gestations
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_gestations ON gestations;
@@ -834,17 +844,18 @@ CREATE TABLE IF NOT EXISTS financial_transactions (
 );
 
 ALTER TABLE financial_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE financial_transactions FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_financial_transactions' AND tablename = 'financial_transactions') THEN
   CREATE POLICY "admins_financial_transactions" ON financial_transactions
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('FINANCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('FINANCIAL')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_transactions' AND tablename = 'financial_transactions') THEN
   CREATE POLICY "read_transactions" ON financial_transactions
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_transactions ON financial_transactions;
@@ -878,17 +889,18 @@ CREATE TABLE IF NOT EXISTS installments (
 );
 
 ALTER TABLE installments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE installments FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_financial_installments' AND tablename = 'installments') THEN
   CREATE POLICY "admins_financial_installments" ON installments
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('FINANCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('FINANCIAL')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_installments' AND tablename = 'installments') THEN
   CREATE POLICY "read_installments" ON installments
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_installments ON installments;
@@ -925,17 +937,18 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 
 ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_events FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'all_read_calendar' AND tablename = 'calendar_events') THEN
   CREATE POLICY "all_read_calendar" ON calendar_events
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_calendar' AND tablename = 'calendar_events') THEN
   CREATE POLICY "admins_calendar" ON calendar_events
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_calendar_events ON calendar_events;
@@ -966,17 +979,18 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'user_notifications' AND tablename = 'notifications') THEN
   CREATE POLICY "user_notifications" ON notifications
   FOR ALL TO authenticated
-  USING (user_id() = user_id);
+  USING ((select user_id()) = user_id);
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_notifications' AND tablename = 'notifications') THEN
   CREATE POLICY "admins_notifications" ON notifications
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
@@ -1004,17 +1018,18 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_documents' AND tablename = 'documents') THEN
   CREATE POLICY "admins_vet_documents" ON documents
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_documents' AND tablename = 'documents') THEN
   CREATE POLICY "read_documents" ON documents
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR uploaded_by = app.current_user_id_uploaded_by());
+  USING ((select app.is_admin()) OR uploaded_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_documents ON documents;
@@ -1044,11 +1059,12 @@ CREATE TABLE IF NOT EXISTS message_templates (
 );
 
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE message_templates FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_comercial_templates' AND tablename = 'message_templates') THEN
   CREATE POLICY "admins_comercial_templates" ON message_templates
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('COMMERCIAL'));
+  USING ((select has_role('ADMIN')) OR (select has_role('COMMERCIAL')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_templates ON message_templates;
@@ -1074,17 +1090,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_audit' AND tablename = 'audit_log') THEN
   CREATE POLICY "admins_audit" ON audit_log
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_audit' AND tablename = 'audit_log') THEN
   CREATE POLICY "read_audit" ON audit_log
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR user_id = app.current_user_id_user_col());
+  USING ((select app.is_admin()) OR user_id = (select app.current_user_id()));
 END IF; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
@@ -1119,11 +1136,12 @@ CREATE TABLE IF NOT EXISTS system_config (
 );
 
 ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_config FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_config' AND tablename = 'system_config') THEN
   CREATE POLICY "admins_config" ON system_config
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_system_config ON system_config;
@@ -1135,26 +1153,13 @@ CREATE TRIGGER set_timestamp_system_config
 -- ####################################################################
 -- SEED DATA - Usuário Admin Padrão
 -- ####################################################################
--- REMOVIDO: O seed de admin com senha "123456" foi removido por segurança.
--- O admin agora é gerenciado via banco de dados com coluna is_protected.
--- A migration 001_add_is_protected.sql marca admins existentes como protegidos.
--- Para criar o primeiro admin manualmente:
+-- Para criar o primeiro admin:
 --   1. Gere um hash bcrypt: node -e "require('bcrypt').hash('SENHA_TEMP', 10).then(console.log)"
 --   2. Insira: INSERT INTO users (name, email, password_hash, role, status, is_protected, require_password_change)
 --      VALUES ('Admin', 'admin@exemplo.com', 'SEU_HASH_AQUI', 'ADMIN', 'ACTIVE', TRUE, TRUE);
--- DO $$
--- BEGIN
---   IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@admin.com') THEN
---     INSERT INTO users (name, email, password_hash, role, status)
---     VALUES (
---       'Admin',
---       'admin@admin.com',
---       '$2b$10$S2pyJ.pBRgbBSsYMDGHScefD5T8WuCgHCZMUgOYjGtmpfl0Fd/AMy',
---       'ADMIN',
---       'ACTIVE'
---     );
---   END IF;
--- END $$;
+--
+-- IMPORTANTE: Nunca commite hashes hardcoded no schema.
+-- O admin é gerenciado via aplicação com coluna is_protected.
 
 
 -- ####################################################################
@@ -1328,17 +1333,18 @@ CREATE TABLE IF NOT EXISTS litter_health_events (
 );
 
 ALTER TABLE litter_health_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE litter_health_events FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_vet_litter_health_events' AND tablename = 'litter_health_events') THEN
   CREATE POLICY "admins_vet_litter_health_events" ON litter_health_events
   FOR ALL TO authenticated
-  USING (has_role('ADMIN') OR has_role('VET'));
+  USING ((select has_role('ADMIN')) OR (select has_role('VET')));
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'read_litter_health_events' AND tablename = 'litter_health_events') THEN
   CREATE POLICY "read_litter_health_events" ON litter_health_events
   FOR SELECT TO authenticated
-  USING (app.is_admin() OR created_by = app.current_user_id());
+  USING ((select app.is_admin()) OR created_by = (select app.current_user_id()));
 END IF; END $$;
 
 DROP TRIGGER IF EXISTS set_timestamp_litter_health_events ON litter_health_events;
@@ -1366,18 +1372,19 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token_hash ON refresh_tokens(token
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 
 ALTER TABLE refresh_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE refresh_tokens FORCE ROW LEVEL SECURITY;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'user_own_refresh_tokens' AND tablename = 'refresh_tokens') THEN
   CREATE POLICY "user_own_refresh_tokens" ON refresh_tokens
   FOR ALL TO authenticated
-  USING (user_id() = user_id)
-  WITH CHECK (user_id() = user_id);
+  USING ((select user_id()) = user_id)
+  WITH CHECK ((select user_id()) = user_id);
 END IF; END $$;
 
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'admins_refresh_tokens' AND tablename = 'refresh_tokens') THEN
   CREATE POLICY "admins_refresh_tokens" ON refresh_tokens
   FOR ALL TO authenticated
-  USING (has_role('ADMIN'));
+  USING ((select has_role('ADMIN')));
 END IF; END $$;
 
 
@@ -1429,10 +1436,8 @@ BEGIN
 
   -- --------------------------------------------------
   -- users.created_by
+  -- NOTE: Mantém NULLABLE — o primeiro admin não tem criador.
   -- --------------------------------------------------
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'created_by' AND is_nullable = 'YES') THEN
-    ALTER TABLE users ALTER COLUMN created_by SET NOT NULL;
-  END IF;
   IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_created_by_fkey') THEN
     ALTER TABLE users DROP CONSTRAINT users_created_by_fkey;
   END IF;
@@ -1719,15 +1724,14 @@ BEGIN
 
   -- --------------------------------------------------
   -- audit_log.user_id → fk_audit_log_user_id
+  -- NULLABLE: eventos como LOGIN_FAILED não têm userId.
+  -- ON DELETE SET NULL: se usuário for deletado, manter log.
   -- --------------------------------------------------
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'audit_log' AND column_name = 'user_id' AND is_nullable = 'YES') THEN
-    ALTER TABLE audit_log ALTER COLUMN user_id SET NOT NULL;
-  END IF;
   IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'audit_log_user_id_fkey') THEN
     ALTER TABLE audit_log DROP CONSTRAINT audit_log_user_id_fkey;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_audit_log_user_id') THEN
-    ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT;
+    ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
   END IF;
 
   -- --------------------------------------------------
