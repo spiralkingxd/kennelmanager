@@ -25,7 +25,7 @@ import {
 
 interface DashboardProps {
   navigateTo?: (id: string) => void;
-  user?: { id: string; email: string; role: string; name?: string } | null;
+  user?: { id: string; username: string; role: string; name?: string } | null;
 }
 
 export function Dashboard({ navigateTo, user }: DashboardProps) {
@@ -317,7 +317,7 @@ export function Dashboard({ navigateTo, user }: DashboardProps) {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
-            {greeting}, <span className="text-brand-500">{user?.name || user?.email || 'Usuário'}</span>!
+            {greeting}, <span className="text-brand-500">{user?.name || user?.username || 'Usuário'}</span>!
           </h1>
           <p className="text-sm font-medium text-zinc-400 mb-2 capitalize">{currentDate}</p>
           {alarms.length === 0 ? (

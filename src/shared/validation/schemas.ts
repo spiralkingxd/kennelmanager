@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 export const emailSchema = z.string().min(1, 'Email obrigatório').email('Email inválido');
 
+export const usernameSchema = z
+  .string()
+  .min(3, 'Username: mínimo 3 caracteres')
+  .max(30, 'Username: máximo 30 caracteres')
+  .regex(/^[a-z0-9_]+$/, 'Username: apenas letras, números e underscore');
+
 export const nameSchema = z.string().min(1, 'Nome obrigatório').max(100, 'Máximo 100 caracteres');
 
 export const passwordSchema = z.string()

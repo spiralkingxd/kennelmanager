@@ -1,4 +1,3 @@
-const TOKEN_COOKIE = 'kennelmanager_token';
 const REFRESH_TOKEN_COOKIE = 'kennelmanager_refresh_token';
 const USER_KEY = 'kennelmanager_user';
 const API_PREFIX = '/api/v1';
@@ -11,8 +10,12 @@ function getCookie(name: string): string | null {
   return match ? match[2] : null;
 }
 
+// HIGH-001: Token is now stored in an httpOnly cookie set by the server, so JS
+// cannot read or clear it. The browser sends it back automatically with
+// `credentials: 'include'`. Only the refresh-token cookie was already httpOnly
+// before, so `clearSessionCookies` keeps working for it. The access token
+// cookie is cleared server-side via the /auth/logout endpoint.
 function clearSessionCookies() {
-  document.cookie = `${TOKEN_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
   document.cookie = `${REFRESH_TOKEN_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
   document.cookie = `csrf-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 }
@@ -20,17 +23,14 @@ function clearSessionCookies() {
 const MUTATING_METHODS = ['POST', 'PUT', 'DELETE', 'PATCH'];
 
 export async function apiFetch<T = any>(url: string, options: RequestInit = {}): Promise<T> {
-  const token = getCookie(TOKEN_COOKIE);
+  // HIGH-001: access token is no longer readable from JS (httpOnly). The browser
+  // attaches it automatically to same-origin requests via `credentials: 'include'`.
   const csrfToken = getCookie('csrf-token');
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   // SEG-002: Add CSRF token to mutating requests
   if (MUTATING_METHODS.includes((options.method || 'GET').toUpperCase()) && csrfToken) {

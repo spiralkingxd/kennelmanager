@@ -82,7 +82,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
+  username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   phone TEXT,
   avatar_path TEXT,
@@ -1155,8 +1155,8 @@ CREATE TRIGGER set_timestamp_system_config
 -- ####################################################################
 -- Para criar o primeiro admin:
 --   1. Gere um hash bcrypt: node -e "require('bcrypt').hash('SENHA_TEMP', 10).then(console.log)"
---   2. Insira: INSERT INTO users (name, email, password_hash, role, status, is_protected, require_password_change)
---      VALUES ('Admin', 'admin@exemplo.com', 'SEU_HASH_AQUI', 'ADMIN', 'ACTIVE', TRUE, TRUE);
+--   2. Insira: INSERT INTO users (name, username, password_hash, role, status, is_protected, require_password_change)
+--      VALUES ('Admin', 'admin', 'SEU_HASH_AQUI', 'ADMIN', 'ACTIVE', TRUE, TRUE);
 --
 -- IMPORTANTE: Nunca commite hashes hardcoded no schema.
 -- O admin é gerenciado via aplicação com coluna is_protected.
@@ -1172,7 +1172,7 @@ FROM (VALUES
   ('session_config', '{"timeout_minutes": 30, "max_login_attempts": 5, "lockout_duration_minutes": 15}'::jsonb, 'Configurações de sessão e segurança'),
   ('breed_defaults', '{"default_breed": "", "default_size": "MEDIUM"}'::jsonb, 'Valores padrão para cadastro de animais')
 ) AS v(key, value, description)
-CROSS JOIN (SELECT id FROM users WHERE email = 'admin@admin.com' LIMIT 1) AS u
+CROSS JOIN (SELECT id FROM users WHERE username = 'admin' LIMIT 1) AS u
 ON CONFLICT (key) DO NOTHING;
 
 
@@ -1278,6 +1278,7 @@ END $$;
 -- ====================================================================
 CREATE INDEX IF NOT EXISTS idx_users_created_by ON users(created_by);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_animals_owner_id ON animals(owner_id);
 CREATE INDEX IF NOT EXISTS idx_animals_birth_date ON animals(birth_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_user_id ON calendar_events(user_id);

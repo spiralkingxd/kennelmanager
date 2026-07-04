@@ -6,7 +6,9 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env.test
 !.env.example
+!.env.test.example
 
 # ==========================================
 # Dependencies
@@ -108,3 +110,4 @@ Desktop.ini
 .vercel/
 .netlify/
 *.pid
+.plan/

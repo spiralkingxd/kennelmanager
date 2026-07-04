@@ -1,7 +1,7 @@
 export interface UserData {
   id: string;
   name: string;
-  email: string;
+  username: string;
   phone?: string;
   role: string;
   status: string;
@@ -13,7 +13,7 @@ export interface UserData {
 
 export interface FormState {
   name: string;
-  email: string;
+  username: string;
   phone: string;
   role: string;
   status: string;

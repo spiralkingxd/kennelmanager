@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { AuthService } from './service';
-import { loginSchema, forgotPasswordSchema, refreshTokenSchema } from './schema';
+import { loginSchema, refreshTokenSchema } from './schema';
 import { AuditLogRepository } from '../audit_log/repository';
 import { AppError } from '../../shared/utils/AppError';
 
@@ -13,24 +13,23 @@ export class AuthController {
     this.authService = new AuthService();
     this.auditLogRepository = new AuditLogRepository();
     this.login = this.login.bind(this);
-    this.forgotPassword = this.forgotPassword.bind(this);
     this.refresh = this.refresh.bind(this);
     this.logout = this.logout.bind(this);
   }
 
   public async login(req: Request, res: Response, next: NextFunction) {
-    const email = req.body?.email;
+    const username = req.body?.username;
     try {
       const data = loginSchema.parse(req.body);
 
-      const result = await this.authService.login(data.email, data.password);
+      const result = await this.authService.login(data.username, data.password);
 
       this.auditLogRepository.create({
         userId: result.user.id,
         action: 'LOGIN',
         entityType: 'auth',
         entityId: result.user.id,
-        newValues: { email: data.email },
+        newValues: { username: data.username },
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       }).catch(err => console.error('Audit log error:', err));
@@ -39,8 +38,11 @@ export class AuthController {
       // path: '/' ensures cookies are sent on ALL requests, not just /api/v1/auth/login
       // sameSite: 'lax' — 'strict' prevents cookies from being attached to the first
       // fetch() calls after login in some browsers, causing an immediate 401 → redirect loop.
+      // HIGH-001: both the access token AND refresh token cookies must be httpOnly
+      // to prevent XSS-based token exfiltration. The browser will attach them
+      // automatically to same-origin requests via `credentials: 'include'`.
       const cookieOptions = {
-        httpOnly: false,
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax' as const,
         path: '/',
@@ -68,7 +70,7 @@ export class AuthController {
           userId: null,
           action: 'LOGIN_FAILED',
           entityType: 'auth',
-          newValues: { email },
+          newValues: { username },
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'],
         }).catch(err => console.error('Audit log error:', err));
@@ -83,8 +85,9 @@ export class AuthController {
       const result = await this.authService.refresh(refreshToken);
 
       // SEG-001: Refresh cookies
+      // HIGH-001: access token cookie is now httpOnly (inaccessible to JS).
       const cookieOptions = {
-        httpOnly: false,
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax' as const,
         path: '/',
@@ -138,26 +141,4 @@ export class AuthController {
     }
   }
 
-  public async forgotPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = forgotPasswordSchema.parse(req.body);
-      await this.authService.forgotPassword(data.email);
-
-      this.auditLogRepository.create({
-        userId: null,
-        action: 'PASSWORD_RESET_REQUESTED',
-        entityType: 'auth',
-        newValues: { email: data.email },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      }).catch(err => console.error('Audit log error:', err));
-
-      return res.status(200).json({
-        success: true,
-        message: 'Se este e-mail estiver cadastrado, você receberá as instruções em breve.',
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
 }

@@ -83,7 +83,7 @@ interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   onLogout: () => void;
-  user?: { id: string; email: string; role: string; name?: string } | null;
+  user?: { id: string; username: string; role: string; name?: string } | null;
 }
 
 const roleLabels: Record<string, string> = {
@@ -192,10 +192,10 @@ export function Sidebar({ activeItemId, setActiveItemId, isCollapsed, setIsColla
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-zinc-300">
-                {getInitials(user?.name || user?.email)}
+                {getInitials(user?.name || user?.username)}
               </div>
               <div className="flex flex-col">
-                <span className="truncate text-sm font-medium text-zinc-200">{user?.name || user?.email || 'Usuário'}</span>
+                <span className="truncate text-sm font-medium text-zinc-200">{user?.name || user?.username || 'Usuário'}</span>
                 <span className="truncate text-xs text-zinc-500">{user?.role ? (roleLabels[user.role] || user.role) : ''}</span>
               </div>
             </div>

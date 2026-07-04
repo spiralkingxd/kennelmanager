@@ -4,36 +4,53 @@ import { z } from 'zod';
 
 const jwtPayloadSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email(),
+  username: z.string(),
   role: z.enum(['ADMIN', 'CRIADOR', 'VET', 'COMMERCIAL', 'FINANCIAL', 'READONLY']),
 });
 
 /**
+ * Parse a named cookie from the Cookie header (same pattern as csrf.ts;
+ * the project deliberately avoids the cookie-parser dependency).
+ */
+function getCookie(req: Request, name: string): string | undefined {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return undefined;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]*)`));
+  return match?.[1];
+}
+
+/**
  * Middleware de autenticação JWT.
- * Extrai o token do header Authorization (Bearer), verifica a assinatura
- * e anexa os dados do usuário (id, email, role) ao req.user.
+ * Extrai o token do header Authorization (Bearer) — prioridade 1 — e
+ * do cookie httpOnly `kennelmanager_token` — prioridade 2 (HIGH-001).
+ * Verifica a assinatura e anexa os dados do usuário (id, username, role)
+ * ao req.user.
  */
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
+  // HIGH-001: Prefer relying on httpOnly cookie sent automatically by the browser.
+  // Fall back to Authorization header for backwards compatibility (mobile/non-browser clients).
+  let token: string | undefined;
 
-  if (!authHeader) {
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const parts = authHeader.split(' ');
+    if (parts.length === 2 && parts[0] === 'Bearer') {
+      token = parts[1];
+    }
+  }
+
+  if (!token) {
+    token = getCookie(req, 'kennelmanager_token');
+  }
+
+  if (!token) {
     return res.status(401).json({
       success: false,
       message: 'Token de autenticação não fornecido.',
       code: 'TOKEN_MISSING',
     });
   }
-
-  const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({
-      success: false,
-      message: 'Formato de token inválido. Use: Bearer <token>',
-      code: 'TOKEN_INVALID_FORMAT',
-    });
-  }
-
-  const token = parts[1];
   const jwtSecret = process.env.JWT_SECRET;
 
   if (!jwtSecret) {
@@ -58,7 +75,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
     req.user = {
       id: parsed.data.id,
-      email: parsed.data.email,
+      username: parsed.data.username,
       role: parsed.data.role,
     };
     next();

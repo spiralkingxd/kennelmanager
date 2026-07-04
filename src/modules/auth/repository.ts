@@ -1,13 +1,13 @@
 import { pool } from '../../shared/config/db';
 
 export class AuthRepository {
-  public async findUserByEmail(email: string) {
-    const res = await pool.query('SELECT id, name, email, phone, avatar_path, role, status, login_attempts, blocked_at, last_login, require_password_change, password_hash, created_by, created_at, updated_at FROM users WHERE email = $1 AND status != \'INACTIVE\'', [email]);
+  public async findUserByUsername(username: string) {
+    const res = await pool.query('SELECT id, name, username, phone, avatar_path, role, status, login_attempts, blocked_at, last_login, require_password_change, password_hash, created_by, created_at, updated_at FROM users WHERE username = $1 AND status != \'INACTIVE\'', [username]);
     return res.rows[0] || null;
   }
 
   public async findUserById(id: string) {
-    const res = await pool.query('SELECT id, name, email, phone, avatar_path, role, status, login_attempts, blocked_at, last_login, require_password_change, password_hash, created_by, created_at, updated_at FROM users WHERE id = $1 AND status != \'INACTIVE\'', [id]);
+    const res = await pool.query('SELECT id, name, username, phone, avatar_path, role, status, login_attempts, blocked_at, last_login, require_password_change, password_hash, created_by, created_at, updated_at FROM users WHERE id = $1 AND status != \'INACTIVE\'', [id]);
     return res.rows[0] || null;
   }
 
@@ -69,13 +69,6 @@ export class AuthRepository {
     await pool.query(
       `UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE`,
       [userId]
-    );
-  }
-
-  public async saveResetToken(userId: string, tokenHash: string, expiresAt: Date) {
-    await pool.query(
-      'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-      [userId, tokenHash, expiresAt]
     );
   }
 

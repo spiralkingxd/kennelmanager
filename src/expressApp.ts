@@ -15,6 +15,7 @@ import { logger } from './config/winston';
 import { authMiddleware } from './shared/middlewares/auth';
 import { auditMiddleware } from './shared/middlewares/audit';
 import { csrfMiddleware } from './shared/middlewares/csrf';
+import { authenticatedLimiter } from './config/rateLimiters';
 import { AuthRepository } from './modules/auth/repository';
 import { authRouter } from './modules/auth/router';
 import { usersRouter } from './modules/users/router';
@@ -128,14 +129,6 @@ export function configureApp() {
     message: { success: false, message: 'Muitas tentativas de login. Tente novamente em 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   });
 
-  const forgotPasswordLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { success: false, message: 'Muitas tentativas de recuperação de senha. Tente novamente em 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
-  });
-
   // 5. Body parsers
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '100kb' }));
@@ -148,14 +141,23 @@ export function configureApp() {
     app.use(morgan('dev'));
   }
 
-  // 7. Swagger UI - only available outside production
-  if (process.env.NODE_ENV !== 'production') {
+  // 7. Swagger UI - disabled in production by default, enable via ENABLE_SWAGGER=true (staging only)
+  const swaggerEnabled = process.env.NODE_ENV === 'production'
+    ? process.env.ENABLE_SWAGGER === 'true'
+    : true; // always enabled in development/test
+
+  if (swaggerEnabled) {
     app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('[SWAGGER] Swagger UI enabled — available at /api/docs');
+    }
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SWAGGER === 'true') {
+      logger.warn('[SWAGGER] ⚠ Swagger UI is ENABLED in production! Disable after staging verification.');
+    }
   }
 
   // 8. Mount all routers under /api/v1
   app.use('/api/v1/auth/login', loginLimiter);
-  app.use('/api/v1/auth/forgot-password', forgotPasswordLimiter);
   app.use('/api/v1/auth', authRouter);
 
   // 9. CSRF protection for all non-auth mutating API routes
@@ -184,24 +186,27 @@ export function configureApp() {
   });
 
   // All other routes require JWT authentication + audit logging
-  app.use('/api/v1/users', authMiddleware, auditMiddleware, usersRouter);
-  app.use('/api/v1/animals', authMiddleware, auditMiddleware, animalsRouter);
-  app.use('/api/v1/clients', authMiddleware, auditMiddleware, clientsRouter);
-  app.use('/api/v1/litters', authMiddleware, auditMiddleware, littersRouter);
-  app.use('/api/v1/puppies', authMiddleware, auditMiddleware, puppiesRouter);
-  app.use('/api/v1/financial', authMiddleware, auditMiddleware, financialRouter);
-  app.use('/api/v1/calendar', authMiddleware, auditMiddleware, calendarRouter);
-  app.use('/api/v1/health', authMiddleware, auditMiddleware, healthRouter);
-  app.use('/api/v1/documents', authMiddleware, auditMiddleware, documentsRouter);
-  app.use('/api/v1/sales', authMiddleware, auditMiddleware, salesRouter);
-  app.use('/api/v1/waitlist', authMiddleware, auditMiddleware, waitlistRouter);
-  app.use('/api/v1/client-interactions', authMiddleware, auditMiddleware, clientInteractionsRouter);
-  app.use('/api/v1/audit', authMiddleware, auditMiddleware, auditLogRouter);
-  app.use('/api/v1/system-config', authMiddleware, auditMiddleware, systemConfigRouter);
-  app.use('/api/v1/litter-health-events', authMiddleware, auditMiddleware, litterHealthEventsRouter);
-  app.use('/api/v1/notifications', authMiddleware, auditMiddleware, notificationsRouter);
-  app.use('/api/v1/installments', authMiddleware, auditMiddleware, installmentsRouter);
-  app.use('/api/v1/message-templates', authMiddleware, auditMiddleware, messageTemplatesRouter);
+  // HIGH-002: `authenticatedLimiter` runs AFTER `authMiddleware` so it can
+  // key the per-user bucket on `req.user.id`. It uses IP as a fallback only
+  // when the request is unauthenticated.
+  app.use('/api/v1/users', authMiddleware, authenticatedLimiter, auditMiddleware, usersRouter);
+  app.use('/api/v1/animals', authMiddleware, authenticatedLimiter, auditMiddleware, animalsRouter);
+  app.use('/api/v1/clients', authMiddleware, authenticatedLimiter, auditMiddleware, clientsRouter);
+  app.use('/api/v1/litters', authMiddleware, authenticatedLimiter, auditMiddleware, littersRouter);
+  app.use('/api/v1/puppies', authMiddleware, authenticatedLimiter, auditMiddleware, puppiesRouter);
+  app.use('/api/v1/financial', authMiddleware, authenticatedLimiter, auditMiddleware, financialRouter);
+  app.use('/api/v1/calendar', authMiddleware, authenticatedLimiter, auditMiddleware, calendarRouter);
+  app.use('/api/v1/health', authMiddleware, authenticatedLimiter, auditMiddleware, healthRouter);
+  app.use('/api/v1/documents', authMiddleware, authenticatedLimiter, auditMiddleware, documentsRouter);
+  app.use('/api/v1/sales', authMiddleware, authenticatedLimiter, auditMiddleware, salesRouter);
+  app.use('/api/v1/waitlist', authMiddleware, authenticatedLimiter, auditMiddleware, waitlistRouter);
+  app.use('/api/v1/client-interactions', authMiddleware, authenticatedLimiter, auditMiddleware, clientInteractionsRouter);
+  app.use('/api/v1/audit', authMiddleware, authenticatedLimiter, auditMiddleware, auditLogRouter);
+  app.use('/api/v1/system-config', authMiddleware, authenticatedLimiter, auditMiddleware, systemConfigRouter);
+  app.use('/api/v1/litter-health-events', authMiddleware, authenticatedLimiter, auditMiddleware, litterHealthEventsRouter);
+  app.use('/api/v1/notifications', authMiddleware, authenticatedLimiter, auditMiddleware, notificationsRouter);
+  app.use('/api/v1/installments', authMiddleware, authenticatedLimiter, auditMiddleware, installmentsRouter);
+  app.use('/api/v1/message-templates', authMiddleware, authenticatedLimiter, auditMiddleware, messageTemplatesRouter);
 
   // Healthcheck endpoint
   app.get('/api/health', (req, res) => {
@@ -222,11 +227,12 @@ export function configureApp() {
     app.use('/server.cjs.map', (_req, res) => res.status(404).end());
     app.use(express.static(distPath, { dotfiles: 'deny' }));
 
+    // Protected uploads: require authentication to access uploaded files
     if (process.env.SERVE_UPLOADS === 'true') {
       const uploadsPath = path.join(process.cwd(), 'uploads');
       if (fs.existsSync(uploadsPath)) {
-        app.use('/uploads', express.static(uploadsPath));
-        logger.warn('[SECURITY] Uploads directory is publicly accessible via /uploads/');
+        app.use('/uploads', authMiddleware, express.static(uploadsPath));
+        logger.info('[SECURITY] Uploads directory is publicly accessible via /uploads/ (auth required)');
       }
     }
 
@@ -240,11 +246,8 @@ export function configureApp() {
 }
 
 export async function runStartupTasks() {
-  // In Vercel serverless, skip startup tasks — setInterval doesn't work
-  // (instance is destroyed after each request) and cleanup runs on every cold start anyway.
-  const isVercel = !!process.env.VERCEL;
-  if (isVercel) {
-    // Run cleanup once on cold start, but skip periodic interval
+  // Helper: run token cleanup once with logging
+  async function runTokenCleanup() {
     try {
       const authRepo = new AuthRepository();
       const deletedCount = await authRepo.cleanupExpiredRefreshTokens(30);
@@ -254,27 +257,33 @@ export async function runStartupTasks() {
     } catch (err) {
       logger.error('[CLEANUP] Failed to clean up expired refresh tokens:', { error: err });
     }
+  }
+
+  // In Vercel serverless, skip periodic cleanup — setInterval doesn't work
+  // (instance is destroyed after each request) and cleanup runs on every cold start anyway.
+  const isVercel = !!process.env.VERCEL;
+  if (isVercel) {
+    await runTokenCleanup();
     return;
   }
 
-  // Clean up expired refresh tokens on startup (local/VM only)
-  try {
-    const authRepo = new AuthRepository();
-    const deletedCount = await authRepo.cleanupExpiredRefreshTokens(30);
-    if (deletedCount > 0) {
-      logger.info(`[CLEANUP] Removed ${deletedCount} expired/revoked refresh tokens.`);
-    }
-  } catch (err) {
-    logger.error('[CLEANUP] Failed to clean up expired refresh tokens:', { error: err });
-  }
+  // Non-Vercel: run on startup + schedule periodic cleanup every 24 hours
+  await runTokenCleanup();
+  scheduleTokenCleanup(runTokenCleanup);
+}
 
-  // Periodic cleanup every 24 hours (only works in long-running processes)
+/**
+ * Schedule periodic refresh token cleanup.
+ * Only called in long-running processes (not Vercel serverless).
+ */
+function scheduleTokenCleanup(cleanupFn: () => Promise<void>) {
+  const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
   setInterval(async () => {
-    try {
-      const authRepo = new AuthRepository();
-      await authRepo.cleanupExpiredRefreshTokens(30);
-    } catch (err) {
-      logger.error('[CLEANUP] Periodic refresh token cleanup failed:', { error: err });
-    }
-  }, 24 * 60 * 60 * 1000);
+    logger.info('[CLEANUP] Running periodic refresh token cleanup...');
+    await cleanupFn();
+    logger.info('[CLEANUP] Periodic refresh token cleanup completed.');
+  }, CLEANUP_INTERVAL_MS);
+
+  logger.info('[CLEANUP] Scheduled refresh token cleanup every 24 hours.');
 }

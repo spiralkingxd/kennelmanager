@@ -1,4 +1,5 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import { Request } from 'express';
 
 // Rate limiting on user destruction (delete) endpoint - 5 requests per 15 min
 export const userDestructionLimiter = rateLimit({
@@ -40,6 +41,19 @@ export const financialLimiter = rateLimit({
 export const entityDestructionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  message: { success: false, message: 'Muitas requisições. Tente novamente em 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// HIGH-002: Per-authenticated-user rate limiter. When `req.user` exists (i.e.
+// running AFTER `authMiddleware`) we key the bucket on the user id — a single
+// user from many IPs still counts as one bucket. Otherwise we fall back to
+// the client IP for unauthenticated traffic.
+export const authenticatedLimiter: RateLimitRequestHandler = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: (req: Request) => (req.user?.id ? 100 : 30),
+  keyGenerator: (req: Request) => req.user?.id ?? req.ip ?? 'anonymous',
   message: { success: false, message: 'Muitas requisições. Tente novamente em 15 minutos.', code: 'RATE_LIMIT_EXCEEDED' },
   standardHeaders: true,
   legacyHeaders: false,

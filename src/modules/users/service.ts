@@ -29,12 +29,24 @@ export class UsersService {
     return this.repository.delete(id, userId);
   }
   public async resetPassword(id: string, userId?: string) {
+    // H-01: check is_protected before allowing password reset.
+    // Mirrors the guard in controller.update (line 49-57) and controller.delete (line 66-67).
+    const targetUser = await this.repository.findById(id, userId);
+    if (targetUser?.is_protected) {
+      throw new AppError(
+        'O administrador principal não pode ter sua senha redefinida por outro administrador.',
+        403,
+        true,
+        'PROTECTED_ADMIN',
+      );
+    }
+
     // Server-side random: 9 bytes (72 bits) → base64url → 12 chars (slice(0,14) is a no-op)
     const tempPassword = randomBytes(9).toString('base64url').slice(0, 14);
     const passwordHash = await bcrypt.hash(tempPassword, 10);
     // Direct SQL because repository.update does not touch password_hash column
     const result = await pool.query(
-      `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND ($3::uuid IS NULL OR created_by = $3) RETURNING id, email`,
+      `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND ($3::uuid IS NULL OR created_by = $3) RETURNING id, username`,
       [passwordHash, id, userId ?? null]
     );
     if (result.rows.length === 0) {

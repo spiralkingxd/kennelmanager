@@ -1,7 +1,7 @@
 import { pool } from '../../shared/config/db';
 import { buildUpdateQuery } from '../../shared/utils/updateHelper';
 
-const USER_COLUMNS = 'id, name, email, phone, avatar_path, role, status, last_login, login_attempts, blocked_at, require_password_change, is_protected, created_by, created_at, updated_at';
+const USER_COLUMNS = 'id, name, username, phone, avatar_path, role, status, last_login, login_attempts, blocked_at, require_password_change, is_protected, created_by, created_at, updated_at';
 
 export class UsersRepository {
   public async findAll(skip: number, take: number, userId?: string) {
@@ -24,15 +24,15 @@ export class UsersRepository {
   }
   public async create(data: any) {
     const res = await pool.query(
-      `INSERT INTO users (name, email, password_hash, phone, role, status, created_by, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, CURRENT_TIMESTAMP) RETURNING ${USER_COLUMNS}`,
-      [data.name, data.email, data.passwordHash || '', data.phone, data.role || 'READONLY', data.status || 'ACTIVE', data.createdBy]
+      `INSERT INTO users (name, username, password_hash, phone, role, status, created_by, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, CURRENT_TIMESTAMP) RETURNING ${USER_COLUMNS}`,
+      [data.name, data.username, data.passwordHash || '', data.phone, data.role || 'READONLY', data.status || 'ACTIVE', data.createdBy]
     );
     return res.rows[0];
   }
   public async update(id: string, data: any, userId?: string) {
     const row = await buildUpdateQuery('users', id, data, {
       name: 'name',
-      email: 'email',
+      username: 'username',
       phone: 'phone',
       role: 'role',
       status: 'status',

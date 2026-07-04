@@ -7,7 +7,7 @@ interface UserFormModalProps {
   onClose: () => void;
   selectedUser: UserData | null;
   formName: string;
-  formEmail: string;
+  formUsername: string;
   formPhone: string;
   formRole: string;
   formStatus: string;
@@ -28,7 +28,7 @@ export function UserFormModal({
   onClose,
   selectedUser,
   formName,
-  formEmail,
+  formUsername,
   formPhone,
   formRole,
   formStatus,
@@ -103,14 +103,14 @@ export function UserFormModal({
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-zinc-400 mb-1.5 block">E-mail (Login) *</label>
+            <label className="text-xs font-semibold text-zinc-400 mb-1.5 block">Username *</label>
             <input
-              type="email"
-              value={formEmail}
-              onChange={(e) => { onFieldChange('email', e.target.value); onClearFieldError('email'); }}
+              type="text"
+              value={formUsername}
+              onChange={(e) => { onFieldChange('username', e.target.value); onClearFieldError('username'); }}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-200 focus:border-brand-500 outline-none"
             />
-            {fieldErrors.email && <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>}
+            {fieldErrors.username && <p className="text-red-400 text-xs mt-1">{fieldErrors.username}</p>}
           </div>
 
           <div>

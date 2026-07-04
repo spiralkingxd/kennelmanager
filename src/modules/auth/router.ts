@@ -32,12 +32,11 @@ const refreshLimiter = rateLimit({
  *           schema:
  *             type: object
  *             required:
- *               - email
+ *               - username
  *               - password
  *             properties:
- *               email:
+ *               username:
  *                 type: string
- *                 format: email
  *               password:
  *                 type: string
  *     responses:
@@ -47,6 +46,5 @@ const refreshLimiter = rateLimit({
  *         description: Credenciais inválidas
  */
 authRouter.post('/login', authController.login);
-authRouter.post('/forgot-password', authController.forgotPassword);
 authRouter.post('/refresh', refreshLimiter, authController.refresh);
 authRouter.post('/logout', authController.logout);

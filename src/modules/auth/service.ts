@@ -4,7 +4,6 @@ import { AppError } from '../../shared/utils/AppError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { env } from 'process';
-import { logger } from '../../config/winston';
 
 export class AuthService {
   private authRepository: AuthRepository;
@@ -13,13 +12,13 @@ export class AuthService {
     this.authRepository = new AuthRepository();
   }
 
-  private generateAccessToken(user: { id: string; role: string; email: string; name: string }): string {
+  private generateAccessToken(user: { id: string; role: string; username: string; name: string }): string {
     const jwtSecret = env.JWT_SECRET;
     if (!jwtSecret) {
       throw new AppError('JWT_SECRET não configurado.', 500, true, 'JWT_CONFIG_ERROR');
     }
     return jwt.sign(
-      { id: user.id, role: user.role, email: user.email, name: user.name },
+      { id: user.id, role: user.role, username: user.username, name: user.name },
       jwtSecret,
       { expiresIn: '15m' }
     );
@@ -33,8 +32,8 @@ export class AuthService {
     return { token, hash, expiresAt };
   }
 
-  public async login(email: string, passwordString: string) {
-    const user = await this.authRepository.findUserByEmail(email);
+  public async login(username: string, passwordString: string) {
+    const user = await this.authRepository.findUserByUsername(username);
 
     if (!user) {
       throw new AppError('Credenciais inválidas', 401, true, 'INVALID_CREDENTIALS');
@@ -61,9 +60,13 @@ export class AuthService {
       // Increment login attempts and block if threshold reached
       const attempts = await this.authRepository.incrementLoginAttempts(user.id);
       if (attempts >= 5) {
-        if (user.role !== 'ADMIN') {
-          await this.authRepository.blockUser(user.id);
-        }
+        // HIGH-004: an ADMIN account must also be protected against brute-force
+        // attacks. The previous exemption only shielded the admin from the
+        // consequences of an attacker who already knew the password, but it
+        // also rewarded attackers who tried random credentials on the admin
+        // account indefinitely. Now ALL accounts (including ADMIN) are blocked
+        // after 5 consecutive failed attempts.
+        await this.authRepository.blockUser(user.id);
         throw new AppError('Conta bloqueada por excesso de tentativas.', 423, true, 'ACCOUNT_BLOCKED');
       }
       throw new AppError('Credenciais inválidas', 401, true, 'INVALID_CREDENTIALS');
@@ -72,7 +75,7 @@ export class AuthService {
     // Reset login attempts on successful login
     await this.authRepository.resetLoginAttempts(user.id);
 
-    // Generate access token (1h) and refresh token (7d)
+    // Generate access token (15m) and refresh token (7d)
     const token = this.generateAccessToken(user);
     const refreshTokenData = this.generateRefreshToken();
 
@@ -85,7 +88,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
+        username: user.username,
         role: user.role
       }
     };
@@ -121,7 +124,7 @@ export class AuthService {
       user: {
         id: user.id,
         name: user.name,
-        email: user.email,
+        username: user.username,
         role: user.role
       }
     };
@@ -129,23 +132,5 @@ export class AuthService {
 
   public async logout(userId: string) {
     await this.authRepository.revokeAllUserRefreshTokens(userId);
-  }
-
-  public async forgotPassword(emailAddress: string): Promise<void> {
-    const user = await this.authRepository.findUserByEmail(emailAddress);
-
-    if (!user) {
-      return;
-    }
-
-    const jwtSecret = env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new AppError('JWT_SECRET não configurado.', 500, true, 'JWT_CONFIG_ERROR');
-    }
-
-    const resetToken = jwt.sign({ id: user.id, purpose: 'password_reset' }, jwtSecret, { expiresIn: '1h' });
-    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-    await this.authRepository.saveResetToken(user.id, tokenHash, new Date(Date.now() + 3600000));
-    logger.info(`[PASSWORD_RESET] Password reset token generated for user`);
   }
 }

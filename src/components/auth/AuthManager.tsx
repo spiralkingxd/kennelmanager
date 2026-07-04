@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Dog, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { emailSchema, passwordSchema } from '../../shared/validation/schemas';
+import { Dog, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { usernameSchema, passwordSchema } from '../../shared/validation/schemas';
 import { apiFetch } from '../../shared/utils/apiFetch';
 
 interface AuthUser {
   id: string;
-  email: string;
+  username: string;
   role: string;
   name?: string;
 }
@@ -18,7 +18,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
   const [view, setView] = useState<'login' | 'forgot' | 'reset'>('login');
   
   // Login State
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -27,7 +27,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Forgot Password State
-  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotUsername, setForgotUsername] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -35,10 +35,10 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
     setError('');
     setFieldErrors({});
 
-    const emailResult = emailSchema.safeParse(email);
+    const usernameResult = usernameSchema.safeParse(username);
     const passwordResult = passwordSchema.safeParse(password);
-    if (!emailResult.success) {
-      setFieldErrors(prev => ({ ...prev, email: emailResult.error.issues[0].message }));
+    if (!usernameResult.success) {
+      setFieldErrors(prev => ({ ...prev, username: usernameResult.error.issues[0].message }));
       return;
     }
     if (!passwordResult.success) {
@@ -50,7 +50,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
     try {
       const data = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (data.success) {
@@ -61,7 +61,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
           setError('Resposta inválida do servidor (token ausente).');
         }
       } else {
-        setError(data.message || 'E-mail ou senha incorretos.');
+        setError(data.message || 'Username ou senha incorretos.');
       }
     } catch (err) {
       setError('Erro ao realizar login.');
@@ -73,16 +73,16 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldErrors({});
-    const emailResult = emailSchema.safeParse(forgotEmail);
-    if (!emailResult.success) {
-      setFieldErrors(prev => ({ ...prev, forgotEmail: emailResult.error.issues[0].message }));
+    const forgotResult = usernameSchema.safeParse(forgotUsername);
+    if (!forgotResult.success) {
+      setFieldErrors(prev => ({ ...prev, forgotUsername: forgotResult.error.issues[0].message }));
       return;
     }
     setIsLoading(true);
     try {
       const data = await apiFetch('/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email: forgotEmail }),
+        body: JSON.stringify({ username: forgotUsername }),
       });
       if (data.success) {
         setForgotSuccess(true);
@@ -125,18 +125,18 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
               <div className="space-y-1">
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-500">
-                    <Mail size={18} />
+                    <User size={18} />
                   </div>
                   <input
-                    type="email"
-                    aria-label="E-mail"
-                    placeholder="E-mail"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setFieldErrors(prev => ({...prev, email: ''})); }}
+                    type="text"
+                    aria-label="Username"
+                    placeholder="Username"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setFieldErrors(prev => ({...prev, username: ''})); }}
                     className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-900/80 pl-11 pr-4 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all font-medium"
                   />
-                  {fieldErrors.email && (
-                    <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+                  {fieldErrors.username && (
+                    <p className="text-red-400 text-xs mt-1">{fieldErrors.username}</p>
                   )}
                 </div>
               </div>
@@ -217,24 +217,24 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
               {!forgotSuccess ? (
                 <form onSubmit={handleForgotSubmit} className="space-y-5">
                   <p className="text-sm text-center text-zinc-400 pb-2">
-                    Digite o e-mail cadastrado na sua conta. Enviaremos um link para redefinir sua senha.
+                    Digite o username cadastrado na sua conta. Enviaremos um link para redefinir sua senha.
                   </p>
                   
                   <div className="relative">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-500">
-                      <Mail size={18} />
+                      <User size={18} />
                     </div>
                     <input
-                      type="email"
+                      type="text"
                       required
-                      aria-label="E-mail"
-                      placeholder="Seu e-mail"
-                      value={forgotEmail}
-                      onChange={(e) => { setForgotEmail(e.target.value); setFieldErrors(prev => ({...prev, forgotEmail: ''})); }}
+                      aria-label="Username"
+                      placeholder="Seu username"
+                      value={forgotUsername}
+                      onChange={(e) => { setForgotUsername(e.target.value); setFieldErrors(prev => ({...prev, forgotUsername: ''})); }}
                       className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-900/80 pl-11 pr-4 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all font-medium"
                     />
-                    {fieldErrors.forgotEmail && (
-                      <p className="text-red-400 text-xs mt-1">{fieldErrors.forgotEmail}</p>
+                    {fieldErrors.forgotUsername && (
+                      <p className="text-red-400 text-xs mt-1">{fieldErrors.forgotUsername}</p>
                     )}
                   </div>
 
@@ -246,7 +246,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
 
                   <button
                     type="submit"
-                    disabled={isLoading || !forgotEmail}
+                    disabled={isLoading || !forgotUsername}
                     className="w-full relative flex h-12 items-center justify-center gap-2 rounded-xl bg-brand-500 text-sm font-bold text-white shadow-lg shadow-brand-500/20 hover:bg-brand-600 focus:outline-none disabled:opacity-70 transition-all"
                   >
                     {isLoading ? <Loader2 size={18} className="animate-spin" /> : 'Enviar Link de Recuperação'}
@@ -255,7 +255,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
               ) : (
                 <div role="status" className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-center">
                   <p className="text-sm font-medium text-emerald-400">
-                    Se este e-mail estiver cadastrado, você receberá as instruções em breve.
+                    Se este username estiver cadastrado, você receberá as instruções em breve.
                   </p>
                 </div>
               )}

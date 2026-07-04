@@ -1,35 +1,40 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../shared/utils/apiFetch';
 
-const TOKEN_COOKIE = 'kennelmanager_token';
-const REFRESH_TOKEN_COOKIE = 'kennelmanager_refresh_token';
 const USER_KEY = 'kennelmanager_user';
-const TOKEN_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
 
 interface AuthUser {
   id: string;
-  email: string;
+  username: string;
   role: string;
   name?: string;
 }
 
-function isTokenExpired(token: string): boolean {
+/**
+ * HIGH-001: The access token lives in an httpOnly cookie set by the server and
+ * is therefore inaccessible to JavaScript. We can only rely on the presence of
+ * a client-readable "session marker" (the non-httpOnly CSRF cookie would also
+ * work, but we deliberately don't read it here). The simplest source of truth
+ * is `localStorage` containing only the **public profile** (id, name, role) of
+ * the authenticated user. Token presence/expiry is validated server-side on
+ * every authenticated request, so a stale client-side entry cannot grant access.
+ */
+function hasStoredUser(): boolean {
+  return !!localStorage.getItem(USER_KEY);
+}
+
+function clearStoredUser() {
+  localStorage.removeItem(USER_KEY);
+}
+
+// HIGH-001: There is no way for JS to clear the httpOnly access-token cookie,
+// so logout MUST call the /auth/logout endpoint, which clears it server-side.
+async function logoutViaApi(): Promise<void> {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp * 1000 < Date.now();
+    await apiFetch('/auth/logout', { method: 'POST' });
   } catch {
-    return true;
+    // Best-effort: ignore network errors, the redirect below still happens.
   }
-}
-
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-  return match ? match[2] : null;
-}
-
-function clearSessionCookies() {
-  document.cookie = `${TOKEN_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-  document.cookie = `${REFRESH_TOKEN_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-  document.cookie = `csrf-token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 }
 
 export function useAuth() {
@@ -37,53 +42,38 @@ export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session from cookie on mount (com validação de expiração)
+  // Restore session from localStorage on mount. The actual auth check happens
+  // server-side on the next request; if the cookie is missing/expired, the API
+  // returns 401 and apiFetch will redirect to login.
   useEffect(() => {
-    const token = getCookie(TOKEN_COOKIE);
     const userData = localStorage.getItem(USER_KEY);
-    if (token && userData) {
+    if (userData) {
       try {
-        if (isTokenExpired(token)) {
-          clearSessionCookies();
-          localStorage.removeItem(USER_KEY);
-        } else {
-          setUser(JSON.parse(userData));
-          setIsAuthenticated(true);
-        }
+        setUser(JSON.parse(userData));
+        setIsAuthenticated(true);
       } catch {
-        clearSessionCookies();
-        localStorage.removeItem(USER_KEY);
+        clearStoredUser();
       }
     }
     setIsLoading(false);
   }, []);
 
-  const login = useCallback((token: string, userData: AuthUser, refreshToken?: string, rememberMe?: boolean) => {
-    // Tokens são armazenados em httpOnly cookies pelo servidor, não em localStorage
+  const login = useCallback((_token: string, userData: AuthUser, _refreshToken?: string, _rememberMe?: boolean) => {
+    // HIGH-001: Tokens are stored in httpOnly cookies by the server; the client
+    // only persists the **public user profile** for UI rendering.
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
   }, []);
 
   const logout = useCallback(() => {
-    clearSessionCookies();
-    localStorage.removeItem(USER_KEY);
+    // HIGH-001: cannot clear the httpOnly access-token cookie from JS — the
+    // server-side /auth/logout endpoint is the only place that can do it.
+    void logoutViaApi();
+    clearStoredUser();
     setUser(null);
     setIsAuthenticated(false);
   }, []);
 
-  // Periodic token expiry check (a cada 5 minutos)
-  useEffect(() => {
-    const checkToken = () => {
-      const token = getCookie(TOKEN_COOKIE);
-      if (token && isTokenExpired(token)) {
-        logout();
-      }
-    };
-
-    const interval = setInterval(checkToken, TOKEN_CHECK_INTERVAL);
-    return () => clearInterval(interval);
-  }, [logout]);
-
-  return { isAuthenticated, user, isLoading, login, logout };
+  return { isAuthenticated, user, isLoading, login, logout, hasStoredUser };
 }

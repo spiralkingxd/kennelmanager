@@ -19,7 +19,7 @@ export function UserTable({ usuarios, searchTerm, onSearchChange, onEditUser, on
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
             <input
               type="text"
-              placeholder="Buscar usuário por nome ou e-mail..."
+              placeholder="Buscar usuário por nome ou username..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-zinc-200 outline-none focus:border-brand-500 transition-colors"
@@ -63,7 +63,7 @@ export function UserTable({ usuarios, searchTerm, onSearchChange, onEditUser, on
                       </div>
                       <div>
                         <p className="font-bold text-zinc-100 group-hover:text-brand-400 transition-colors">{u.name}</p>
-                        <p className="text-xs text-zinc-500">{u.email}</p>
+                        <p className="text-xs text-zinc-500">{u.username}</p>
                         {isAdminUser(u) && (
                           <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-brand-500/20 border border-brand-500/30 text-[10px] font-bold text-brand-400 uppercase tracking-wider">
                             <Shield size={10} /> Protegido

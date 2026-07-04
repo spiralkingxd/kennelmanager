@@ -1,12 +1,11 @@
 import { z } from 'zod';
 
 export const loginSchema = z.object({
-  email: z
+  username: z
     .string()
     .trim()
     .toLowerCase()
-    .min(1, 'Email é obrigatório')
-    .email('Formato de e-mail inválido'),
+    .min(1, 'Username é obrigatório'),
   password: z
     .string()
     .min(8, 'A senha deve ter pelo menos 8 caracteres')
@@ -17,16 +16,7 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .min(1, 'Email é obrigatório')
-    .email('Formato de e-mail inválido'),
-});
-
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+/** @deprecated Funcionalidade de recuperação de senha adiada — remover quando implementado */
 
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token é obrigatório').max(500),
@@ -40,7 +30,7 @@ export const loginResponseSchema = z.object({
   user: z.object({
     id: z.string(),
     name: z.string(),
-    email: z.string(),
+    username: z.string(),
     role: z.string(),
   }),
 });

@@ -4,7 +4,7 @@
 // credentials, PII) from being written to log files.
 
 export const SENSITIVE_KEYS =
-  /password|senha|token|secret|authorization|apikey|api_key|cookie|jwt|credit_card|cardnumber|cvv|ssn|cpf|email|phone|telefone|celular|address|endereco|birth_date|data_nascimento|birthDate/i;
+  /password|senha|token|secret|authorization|apikey|api_key|cookie|jwt|credit_card|cardnumber|cvv|ssn|cpf|email|username|phone|telefone|celular|address|endereco|birth_date|data_nascimento|birthDate/i;
 
 export function redact(meta: any): any {
   if (meta === null || meta === undefined) return meta;

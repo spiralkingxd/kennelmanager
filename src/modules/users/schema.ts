@@ -11,7 +11,7 @@ const statusEnum = z.enum(['ACTIVE', 'INACTIVE', 'BLOCKED']);
 
 export const createUsersSchema = z.object({
   name: z.string(),
-  email: z.string().email(),
+  username: z.string().min(3).max(30).regex(/^[a-z0-9_]+$/, 'Username: apenas letras, números e underscore'),
   password: passwordSchema,
   phone: z.string().optional(),
   role: roleEnum.optional(),

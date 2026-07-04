@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { nameSchema, emailSchema } from '../../shared/validation/schemas';
+import { nameSchema, usernameSchema } from '../../shared/validation/schemas';
 import { apiFetch } from '../../shared/utils/apiFetch';
 import { UserTable } from './UserTable';
 import { UserFormModal } from './UserFormModal';
@@ -16,7 +16,7 @@ export function AdminUsuarios() {
 
   // Form state
   const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
+  const [formUsername, setFormUsername] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formRole, setFormRole] = useState('READONLY');
   const [formStatus, setFormStatus] = useState('ACTIVE');
@@ -38,13 +38,13 @@ export function AdminUsuarios() {
   const filteredUsuarios = usuarios.filter(u => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    return (u.name || '').toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
+    return (u.name || '').toLowerCase().includes(term) || (u.username || '').toLowerCase().includes(term);
   });
 
   const openNewUser = () => {
     setSelectedUser(null);
     setFormName('');
-    setFormEmail('');
+    setFormUsername('');
     setFormPhone('');
     setFormRole('READONLY');
     setFormStatus('ACTIVE');
@@ -57,7 +57,7 @@ export function AdminUsuarios() {
   const openEditUser = (u: any) => {
     setSelectedUser(u);
     setFormName(u.name || '');
-    setFormEmail(u.email || '');
+    setFormUsername(u.username || '');
     setFormPhone(u.phone || '');
     setFormRole(u.role || 'READONLY');
     setFormStatus(u.status || 'ACTIVE');
@@ -76,9 +76,9 @@ export function AdminUsuarios() {
       setFieldErrors(prev => ({ ...prev, name: nameResult.error.issues[0].message }));
       return;
     }
-    const emailResult = emailSchema.safeParse(formEmail.trim());
-    if (!emailResult.success) {
-      setFieldErrors(prev => ({ ...prev, email: emailResult.error.issues[0].message }));
+    const usernameResult = usernameSchema.safeParse(formUsername.trim());
+    if (!usernameResult.success) {
+      setFieldErrors(prev => ({ ...prev, username: usernameResult.error.issues[0].message }));
       return;
     }
     if (!selectedUser && !formPassword.trim()) {
@@ -90,7 +90,7 @@ export function AdminUsuarios() {
     try {
       const payload: Record<string, string | undefined> = {
         name: formName.trim(),
-        email: formEmail.trim(),
+        username: formUsername.trim(),
         phone: formPhone.trim() || undefined,
         role: formRole,
         status: formStatus,
@@ -178,7 +178,7 @@ export function AdminUsuarios() {
   const onFieldChange = (field: string, value: string) => {
     switch (field) {
       case 'name': setFormName(value); break;
-      case 'email': setFormEmail(value); break;
+      case 'username': setFormUsername(value); break;
       case 'phone': setFormPhone(value); break;
       case 'role': setFormRole(value); break;
       case 'status': setFormStatus(value); break;
@@ -205,7 +205,7 @@ export function AdminUsuarios() {
         onClose={() => setIsModalOpen(false)}
         selectedUser={selectedUser}
         formName={formName}
-        formEmail={formEmail}
+        formUsername={formUsername}
         formPhone={formPhone}
         formRole={formRole}
         formStatus={formStatus}
