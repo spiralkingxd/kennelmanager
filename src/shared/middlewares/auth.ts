@@ -23,7 +23,7 @@ function getCookie(req: Request, name: string): string | undefined {
 /**
  * Middleware de autenticação JWT.
  * Extrai o token do header Authorization (Bearer) — prioridade 1 — e
- * do cookie httpOnly `kennelmanager_token` — prioridade 2 (HIGH-001).
+ * do cookie httpOnly `dogsperez_token` — prioridade 2 (HIGH-001).
  * Verifica a assinatura e anexa os dados do usuário (id, username, role)
  * ao req.user.
  */
@@ -41,7 +41,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 
   if (!token) {
-    token = getCookie(req, 'kennelmanager_token');
+    token = getCookie(req, 'dogsperez_token');
   }
 
   if (!token) {

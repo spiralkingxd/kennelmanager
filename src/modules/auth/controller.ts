@@ -53,8 +53,8 @@ export class AuthController {
         sameSite: 'lax' as const,
         path: '/',
       };
-      res.cookie('kennelmanager_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+      res.cookie('dogsperez_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.cookie('dogsperez_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
       // SEG-002: Set non-httpOnly CSRF cookie (readable by JS)
       const csrfToken = crypto.randomBytes(32).toString('hex');
       res.cookie('csrf-token', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 7 * 24 * 60 * 60 * 1000 });
@@ -98,8 +98,8 @@ export class AuthController {
         sameSite: 'lax' as const,
         path: '/',
       };
-      res.cookie('kennelmanager_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.cookie('kennelmanager_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+      res.cookie('dogsperez_token', result.token, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.cookie('dogsperez_refresh_token', result.refreshToken, { ...refreshCookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
 
       return res.status(200).json({
         success: true,
@@ -128,8 +128,8 @@ export class AuthController {
       }
 
       // SEG-001: Clear cookies (must include path: '/' to match setCookie)
-      res.clearCookie('kennelmanager_token', { path: '/' });
-      res.clearCookie('kennelmanager_refresh_token', { path: '/' });
+      res.clearCookie('dogsperez_token', { path: '/' });
+      res.clearCookie('dogsperez_refresh_token', { path: '/' });
       res.clearCookie('csrf-token', { path: '/' });
 
       return res.status(200).json({

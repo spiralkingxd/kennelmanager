@@ -1,5 +1,5 @@
-const REFRESH_TOKEN_COOKIE = 'kennelmanager_refresh_token';
-const USER_KEY = 'kennelmanager_user';
+const REFRESH_TOKEN_COOKIE = 'dogsperez_refresh_token';
+const USER_KEY = 'dogsperez_user';
 const API_PREFIX = '/api/v1';
 
 /** Prevents multiple parallel 401/403 responses from all triggering redirect */

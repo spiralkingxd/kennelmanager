@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../shared/utils/apiFetch';
 
-const USER_KEY = 'kennelmanager_user';
+const USER_KEY = 'dogsperez_user';
 
 interface AuthUser {
   id: string;

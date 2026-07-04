@@ -1168,7 +1168,7 @@ CREATE TRIGGER set_timestamp_system_config
 INSERT INTO system_config (key, value, description, updated_by)
 SELECT v.key, v.value, v.description, u.id
 FROM (VALUES
-  ('smtp_config', '{"host": "", "port": 587, "user": "", "pass": "", "from_name": "KennelManager Pro", "from_email": "noreply@kennelmanager.com"}'::jsonb, 'Configuração de email SMTP'),
+  ('smtp_config', '{"host": "", "port": 587, "user": "", "pass": "", "from_name": "Dogsperez", "from_email": "noreply@dogsperez.com"}'::jsonb, 'Configuração de email SMTP'),
   ('session_config', '{"timeout_minutes": 30, "max_login_attempts": 5, "lockout_duration_minutes": 15}'::jsonb, 'Configurações de sessão e segurança'),
   ('breed_defaults', '{"default_breed": "", "default_size": "MEDIUM"}'::jsonb, 'Valores padrão para cadastro de animais')
 ) AS v(key, value, description)

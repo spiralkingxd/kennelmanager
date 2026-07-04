@@ -113,7 +113,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
               <Dog size={32} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-white mb-1">
-              Canil Manager
+              Dogsperez
             </h1>
             <p className="text-sm font-medium text-zinc-500">
               {view === 'login' ? 'Acesse sua conta para continuar' : 'Recuperar Acesso'}
@@ -280,7 +280,7 @@ export function AuthManager({ onLogin }: AuthManagerProps) {
 
         <div className="mt-8 text-center">
           <p className="text-xs font-medium text-zinc-600">
-            Canil Manager v1.0.0 &copy; {new Date().getFullYear()}
+            Dogsperez &copy; {new Date().getFullYear()}
           </p>
         </div>
       </div>

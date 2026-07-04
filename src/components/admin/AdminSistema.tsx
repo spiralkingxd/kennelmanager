@@ -17,7 +17,7 @@ export function AdminSistema() {
   const [identityForm, setIdentityForm] = useState({ name: '', cnpj: '', address: '', email: '', phone: '' });
 
   // SMTP form state
-  const [smtpForm, setSmtpForm] = useState({ host: 'smtp.sendgrid.net', port: 587, user: '', pass: '', from_name: 'KennelManager Pro', from_email: 'noreply@kennelmanager.com' });
+  const [smtpForm, setSmtpForm] = useState({ host: 'smtp.sendgrid.net', port: 587, user: '', pass: '', from_name: 'Dogsperez', from_email: 'noreply@dogsperez.com' });
 
   // Session form state
   const [sessionForm, setSessionForm] = useState({ timeout_minutes: 30, max_login_attempts: 5, lockout_duration_minutes: 15 });
