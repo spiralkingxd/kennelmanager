@@ -129,7 +129,7 @@ export function Sidebar({ activeItemId, setActiveItemId, isCollapsed, setIsColla
           </div>
           {!isCollapsed && (
             <span className="truncate whitespace-nowrap text-lg font-bold tracking-tight text-zinc-100">
-              Kennel<span className="text-brand-500">Pro</span>
+              Dogs<span className="text-brand-500">Perez</span>
             </span>
           )}
         </div>
